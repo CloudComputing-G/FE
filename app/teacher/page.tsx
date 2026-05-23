@@ -1,6 +1,6 @@
 import Link from "next/link"
-import { MoreHorizontal, Users, FileText, Plus } from "lucide-react"
-import { BottomNav } from "@/components/teacher/BottomNav"
+import { Users, FileText, Plus, MoreHorizontal } from "lucide-react"
+import { Sidebar } from "@/components/teacher/Sidebar"
 
 const classes = [
   { id: "3-2", name: "3학년 2반", students: 8, assignments: 3 },
@@ -10,52 +10,53 @@ const classes = [
 
 export default function TeacherPage() {
   return (
-    <div className="flex w-full flex-col bg-white pb-16">
-      {/* 상태바 */}
-      <div className="flex items-center justify-between px-5 pt-3 pb-1">
-        <span className="text-sm font-semibold">9:41</span>
-        <MoreHorizontal className="h-5 w-5 text-gray-400" />
-      </div>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
 
-      {/* 타이틀 */}
-      <div className="px-5 pt-2 pb-4">
-        <h1 className="text-2xl font-bold">반 관리</h1>
-      </div>
+      <div className="ml-60 flex-1">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
+          <h1 className="text-xl font-bold text-gray-900">반 관리</h1>
+          <button className="flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 transition-colors">
+            <Plus className="h-4 w-4" />
+            반 추가
+          </button>
+        </header>
 
-      {/* 반 목록 */}
-      <div>
-        {classes.map((cls, i) => (
-          <div key={cls.id}>
-            {i > 0 && <div className="mx-5 h-px bg-gray-100" />}
-            <Link
-              href={cls.id === "3-2" ? `/teacher/classes/${cls.id}` : "#"}
-              className="block px-5 py-5 active:bg-gray-50"
-            >
-              <p className="text-base font-semibold">{cls.name}</p>
-              <div className="mt-1.5 flex items-center gap-4 text-sm text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  학생 {cls.students}명
-                </span>
-                <span className="flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5" />
-                  과제 {cls.assignments}개
-                </span>
-              </div>
-            </Link>
+        <main className="p-8">
+          <div className="grid grid-cols-3 gap-6">
+            {classes.map((cls) => (
+              <Link
+                key={cls.id}
+                href={cls.id === "3-2" ? `/teacher/classes/${cls.id}` : "#"}
+                className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-green-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50">
+                    <Users className="h-6 w-6 text-green-600" />
+                  </div>
+                  <span
+                    aria-label="더 보기"
+                    className="opacity-0 group-hover:opacity-100 text-gray-400"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </span>
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-gray-900">{cls.name}</h2>
+                <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4" />
+                    학생 {cls.students}명
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-4 w-4" />
+                    과제 {cls.assignments}개
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
-        ))}
+        </main>
       </div>
-
-      {/* FAB */}
-      <button
-        aria-label="반 추가"
-        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white shadow-lg active:bg-green-600"
-      >
-        <Plus className="h-7 w-7" />
-      </button>
-
-      <BottomNav />
     </div>
   )
 }
