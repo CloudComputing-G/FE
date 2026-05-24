@@ -1,5 +1,6 @@
 "use client";
 
+<<<<<<< HEAD
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
@@ -10,6 +11,12 @@ const assignmentOptions = [
   { id: 2, title: "이차방정식 심화 문제", deadline: "2026년 5월 20일 23:59" },
 ];
 
+=======
+import Link from "next/link";
+import { Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDown, Lightbulb } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
 const tabs = [
   { label: "결과", icon: BarChart2, href: "/student/results", active: false },
   { label: "업로드", icon: Upload, href: "/student/upload", active: true },
@@ -19,6 +26,7 @@ const tabs = [
 ];
 
 export default function StudentUploadPage() {
+<<<<<<< HEAD
   const [selectedId, setSelectedId] = useState<number>(1);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -34,6 +42,10 @@ export default function StudentUploadPage() {
 
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-[#F9FAFB] mx-auto">
+=======
+  return (
+    <div className="flex flex-col w-full max-w-md min-h-screen bg-[#F9FAFB] mx-auto">
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
       {/* StatusBar */}
       <div className="flex items-center justify-between px-6 pt-3 pb-2 bg-white">
         <span className="text-[15px] font-semibold text-[#111827] tracking-tight">9:41</span>
@@ -52,6 +64,7 @@ export default function StudentUploadPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-6 px-4 pt-6 pb-6">
           {/* Page Title */}
+<<<<<<< HEAD
           <div className="flex items-center">
             <Link href="/student/my-class" aria-label="뒤로가기" className="active:opacity-70">
               <ChevronLeft className="w-6 h-6 text-[#111827]" />
@@ -67,12 +80,22 @@ export default function StudentUploadPage() {
               onClick={() => setDropdownOpen((o) => !o)}
               className="w-full bg-white rounded-xl px-4 py-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] flex items-center justify-between active:opacity-70"
             >
+=======
+          <h1 className="text-[20px] font-bold text-[#111827] leading-[30px] tracking-tight text-center">
+            풀이 업로드
+          </h1>
+
+          {/* Assignment Card */}
+          <div className="bg-white rounded-xl px-4 py-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
+            <div className="flex items-center justify-between">
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
               <div className="flex items-center gap-3">
                 {/* Green icon box */}
                 <div className="w-10 h-10 bg-[#D1FAE5] rounded-lg flex items-center justify-center flex-shrink-0">
                   <div className="w-6 h-6 border-[1.4px] border-[#10B981] rounded" />
                 </div>
                 {/* Text */}
+<<<<<<< HEAD
                 <div className="flex flex-col gap-[2px] text-left">
                   <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
                     {selected.title}
@@ -153,10 +176,52 @@ export default function StudentUploadPage() {
               </div>
             )}
           </label>
+=======
+                <div className="flex flex-col gap-[2px]">
+                  <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
+                    2차 수학 단원평가
+                  </span>
+                  <span className="text-[12px] text-[#9CA3AF] leading-[18px]">
+                    마감: 2026년 3월 28일 23:59
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="w-5 h-5 text-[#9CA3AF]" />
+            </div>
+          </div>
+
+          {/* Upload Drop Zone */}
+          <div
+            className="flex flex-col items-center justify-center gap-0 rounded-[16px] border border-dashed border-[#D1D5DB] bg-white py-[65px] px-4 cursor-pointer active:opacity-70"
+            style={{ minHeight: 311 }}
+            onClick={() => {}}
+          >
+            {/* Camera icon circle */}
+            <div className="w-16 h-16 rounded-full bg-[#E5E7EB] flex items-center justify-center mb-6">
+              <Camera className="w-8 h-8 text-[#6B7280]" />
+            </div>
+            {/* Title */}
+            <p className="text-[16px] font-semibold text-[#111827] leading-[24px] tracking-tight mb-3">
+              풀이 사진 추가
+            </p>
+            {/* Subtitle */}
+            <p className="text-[13px] font-medium text-[#6B7280] leading-[19.5px] text-center px-4 mb-2">
+              탭하여 사진을 선택하거나 찍으세요 또는 파일
+            </p>
+            {/* Format hint */}
+            <p className="text-[12px] font-medium text-[#D1D5DB] leading-[18px] text-center">
+              JPG, PNG, HEIC 지원
+            </p>
+          </div>
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
 
           {/* Tip Box */}
           <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl px-4 py-4">
             <div className="flex items-start gap-2 mb-3">
+<<<<<<< HEAD
+=======
+              {/* Lightbulb icon area */}
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
               <Lightbulb className="w-[18px] h-[18px] text-[#F59E0B] flex-shrink-0 mt-[1px]" />
               <span className="text-[13px] font-semibold text-[#92400E] leading-[19.5px] tracking-tight">
                 촬영 팁
@@ -174,6 +239,7 @@ export default function StudentUploadPage() {
               </p>
             </div>
           </div>
+<<<<<<< HEAD
 
           {/* Upload Button */}
           <Link
@@ -184,11 +250,17 @@ export default function StudentUploadPage() {
               업로드
             </span>
           </Link>
+=======
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
         </div>
       </div>
 
       {/* TabBar */}
+<<<<<<< HEAD
       <div className="flex items-center justify-between bg-white px-[15px] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-[#F3F4F6]">
+=======
+      <div className="flex items-center justify-between bg-white px-[15px] py-2 border-t border-[#F3F4F6]">
+>>>>>>> 446c13c94443f11a55f7c045668df4b75508ecb6
         {tabs.map(({ label, icon: Icon, href, active }) => (
           <Link
             key={label}
