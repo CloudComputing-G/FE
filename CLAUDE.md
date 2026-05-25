@@ -1,2 +1,2 @@
 @AGENTS.md
-@PLAN.md
+@plan.md
