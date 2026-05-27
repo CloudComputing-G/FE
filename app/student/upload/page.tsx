@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const assignmentOptions = [
-  { id: 1, title: "2차 수학 단원평가", deadline: "2026년 5월 28일 23:59" },
-  { id: 2, title: "이차방정식 심화 문제", deadline: "2026년 5월 20일 23:59" },
-];
+import { getMyClassrooms } from "@/lib/api/classrooms";
+import { getAssignments, getUploadUrl, uploadToS3, confirmUpload } from "@/lib/api/assignments";
+import type { AssignmentResponse } from "@/lib/api/types";
 
 const tabs = [
   { label: "결과", icon: BarChart2, href: "/student/results", active: false },
@@ -18,18 +17,62 @@ const tabs = [
   { label: "AI튜터", icon: Bot, href: "#", active: false },
 ];
 
-export default function StudentUploadPage() {
-  const [selectedId, setSelectedId] = useState<number>(1);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+function StudentUploadContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedId = searchParams.get("assignmentId");
 
-  const selected = assignmentOptions.find((a) => a.id === selectedId)!;
+  const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const classrooms = await getMyClassrooms();
+        if (classrooms.length === 0) return;
+        const list = await getAssignments(classrooms[0].classId);
+        const submittable = list.filter((a) => a.status === "PUBLISHED");
+        setAssignments(submittable);
+        const initial = preselectedId
+          ? Number(preselectedId)
+          : submittable[0]?.assignmentId ?? null;
+        setSelectedId(initial);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [preselectedId]);
+
+  const selected = assignments.find((a) => a.assignmentId === selectedId);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+  }
+
+  async function handleUpload() {
+    if (!file || !selectedId) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const { submissionId, presignedUrl } = await getUploadUrl(selectedId, ext);
+      await uploadToS3(presignedUrl, file);
+      await confirmUpload(selectedId, submissionId);
+      router.push(`/student/upload/grading?submissionId=${submissionId}`);
+    } catch (e) {
+      console.error(e);
+      setError("업로드 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -66,19 +109,18 @@ export default function StudentUploadPage() {
             <button
               onClick={() => setDropdownOpen((o) => !o)}
               className="w-full bg-white rounded-xl px-4 py-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] flex items-center justify-between active:opacity-70"
+              disabled={assignments.length === 0}
             >
               <div className="flex items-center gap-3">
-                {/* Green icon box */}
                 <div className="w-10 h-10 bg-[#D1FAE5] rounded-lg flex items-center justify-center flex-shrink-0">
                   <div className="w-6 h-6 border-[1.4px] border-[#10B981] rounded" />
                 </div>
-                {/* Text */}
                 <div className="flex flex-col gap-[2px] text-left">
                   <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
-                    {selected.title}
+                    {selected?.title ?? "과제를 불러오는 중..."}
                   </span>
                   <span className="text-[12px] text-[#9CA3AF] leading-[18px]">
-                    마감: {selected.deadline}
+                    {selected?.dueDate ? `마감: ${selected.dueDate.slice(0, 10)}` : ""}
                   </span>
                 </div>
               </div>
@@ -88,26 +130,25 @@ export default function StudentUploadPage() {
               }
             </button>
 
-            {/* Dropdown */}
             {dropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-[0px_4px_12px_0px_rgba(0,0,0,0.1)] z-10 overflow-hidden">
-                {assignmentOptions.map((opt) => (
+                {assignments.map((opt) => (
                   <button
-                    key={opt.id}
-                    onClick={() => { setSelectedId(opt.id); setDropdownOpen(false); }}
+                    key={opt.assignmentId}
+                    onClick={() => { setSelectedId(opt.assignmentId); setDropdownOpen(false); }}
                     className={cn(
                       "w-full px-4 py-3 flex flex-col gap-[2px] text-left active:opacity-70",
-                      opt.id === selectedId ? "bg-[#F0FDF4]" : "bg-white"
+                      opt.assignmentId === selectedId ? "bg-[#F0FDF4]" : "bg-white"
                     )}
                   >
                     <span className={cn(
                       "text-[14px] font-semibold leading-[21px] tracking-tight",
-                      opt.id === selectedId ? "text-[#10B981]" : "text-[#111827]"
+                      opt.assignmentId === selectedId ? "text-[#10B981]" : "text-[#111827]"
                     )}>
                       {opt.title}
                     </span>
                     <span className="text-[12px] text-[#9CA3AF] leading-[18px]">
-                      마감: {opt.deadline}
+                      {opt.dueDate ? `마감: ${opt.dueDate.slice(0, 10)}` : "마감일 없음"}
                     </span>
                   </button>
                 ))}
@@ -161,27 +202,32 @@ export default function StudentUploadPage() {
               </span>
             </div>
             <div className="flex flex-col gap-1 pl-6">
-              <p className="text-[12px] text-[#92400E] leading-[18px]">
-                풀이 전체가 보이도록 찍어주세요
-              </p>
-              <p className="text-[12px] text-[#92400E] leading-[18px]">
-                밝은 곳에서 그림자 없이 촬영해주세요
-              </p>
-              <p className="text-[12px] text-[#92400E] leading-[18px]">
-                글씨가 선명하게 나오도록 초점을 맞춰주세요
-              </p>
+              <p className="text-[12px] text-[#92400E] leading-[18px]">풀이 전체가 보이도록 찍어주세요</p>
+              <p className="text-[12px] text-[#92400E] leading-[18px]">밝은 곳에서 그림자 없이 촬영해주세요</p>
+              <p className="text-[12px] text-[#92400E] leading-[18px]">글씨가 선명하게 나오도록 초점을 맞춰주세요</p>
             </div>
           </div>
 
+          {/* Error */}
+          {error && (
+            <p className="text-[13px] text-[#EF4444] text-center">{error}</p>
+          )}
+
           {/* Upload Button */}
-          <Link
-            href="/student/upload/grading"
-            className="w-full bg-[#10B981] rounded-xl py-4 flex items-center justify-center active:opacity-80"
+          <button
+            onClick={handleUpload}
+            disabled={!file || !selectedId || uploading}
+            className={cn(
+              "w-full rounded-xl py-4 flex items-center justify-center active:opacity-80",
+              !file || !selectedId || uploading
+                ? "bg-[#D1D5DB]"
+                : "bg-[#10B981]"
+            )}
           >
             <span className="text-[16px] font-bold text-white leading-[24px] tracking-tight">
-              업로드
+              {uploading ? "업로드 중..." : "업로드"}
             </span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -194,20 +240,21 @@ export default function StudentUploadPage() {
             className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70"
             aria-label={label}
           >
-            <Icon
-              className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")}
-            />
-            <span
-              className={cn(
-                "text-[11px] leading-[16.5px] tracking-wide",
-                active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]"
-              )}
-            >
+            <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
+            <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
               {label}
             </span>
           </Link>
         ))}
       </div>
     </div>
+  );
+}
+
+export default function StudentUploadPage() {
+  return (
+    <Suspense>
+      <StudentUploadContent />
+    </Suspense>
   );
 }
