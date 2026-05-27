@@ -88,6 +88,8 @@ lib/
 
 ## 검증 방법
 
-- `npm run dev`로 로컬 실행 후 모바일 뷰포트(Chrome DevTools)에서 확인
+- `npm run dev`로 로컬 실행 후 확인
+- **학생 파트**: Chrome DevTools → "iPhone 12 Pro" 프리셋(390×844px)으로 확인
+- **교사 파트**: 일반 데스크톱 브라우저(1280px 이상)에서 확인
 - 주요 흐름: 로그인 → 과제 목록 → 상세 → 업로드/채점결과
 - 백엔드 연동 시: Network 탭에서 API 호출 확인
