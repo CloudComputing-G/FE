@@ -127,8 +127,13 @@ export default function StudentMyClassPage() {
               const deadline = deadlineLabel(item.dueDate);
               const isGraded = badge.label === "채점완료";
               const isNotSubmitted = badge.label === "미제출";
-              const href = isGraded
-                ? `/student/results?submissionId=`
+              const savedSubmissionId = typeof window !== "undefined"
+                ? localStorage.getItem(`submission_${item.assignmentId}`)
+                : null;
+              const href = isGraded && savedSubmissionId
+                ? `/student/results?submissionId=${savedSubmissionId}`
+                : isGraded
+                ? null
                 : isNotSubmitted
                 ? `/student/upload?assignmentId=${item.assignmentId}`
                 : null;

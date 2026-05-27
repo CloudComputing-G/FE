@@ -66,6 +66,7 @@ function StudentUploadContent() {
       const { submissionId, presignedUrl } = await getUploadUrl(selectedId, ext);
       await uploadToS3(presignedUrl, file);
       await confirmUpload(selectedId, submissionId);
+      localStorage.setItem(`submission_${selectedId}`, String(submissionId));
       router.push(`/student/upload/grading?submissionId=${submissionId}`);
     } catch (e) {
       console.error(e);
