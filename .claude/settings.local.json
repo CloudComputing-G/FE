@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "mcp__figma-developer-mcp__get_figma_data",
-      "mcp__figma-developer-mcp__download_figma_images"
+      "mcp__figma-developer-mcp__download_figma_images",
+      "mcp__figma__get_metadata",
+      "Bash(rtk ls *)",
+      "Bash(rtk find *)",
+      "Bash(python3 *)",
+      "Bash(rtk curl *)"
     ]
   }
 }
