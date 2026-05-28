@@ -1,0 +1,53 @@
+변경 사항 있을시
+
+setting → secrets and variables →actions → application.yml 수정하기 
+
+spring:
+  application:
+    name: com
+
+  datasource:
+    url: jdbc:postgresql://checkmate-db.cz4gc0a0eeuy.us-east-1.rds.amazonaws.com:5432/checkmate
+    username: postgres
+    password: checkmate123!
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: master.checkmate-redis.jcsy2m.use1.cache.amazonaws.com
+      port: 6379
+      ssl:
+        enabled: true
+
+cloud:
+  aws:
+    region:
+      static: us-east-1
+    s3:
+      bucket: checkmate-bucket-g
+  
+
+jwt:
+  secret: Wbe9CZ34cSolL2eWLFRwHOTnxyt8cJ3bMevTaVZtb+w=
+  access-token-expiration: 1800000
+  refresh-token-expiration: 604800000
+
+swagger:
+  server:
+    url: http://100.28.160.69:8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

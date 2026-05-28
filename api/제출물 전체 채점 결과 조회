@@ -1,0 +1,98 @@
+## Domain
+
+
+## Method
+
+Get
+
+## endpoint
+/api/submissions/{sid}/results
+
+## 비고
+
+## API 이름
+
+제출물 전체 채점 결과 조회
+
+## API 설명
+
+Lambda 채점 완료 후 RDS에 저장된 채점 결과를 반환한다.
+STUDENT는 본인 제출물만 조회 가능하며, TEACHER는 반 내 모든 제출물을 조회할 수 있다.
+
+## Method / URL
+
+```
+GET /submissions/{sid}/results
+```
+
+## Request
+
+```json
+{
+  "Header": "Authorization: Bearer {accessToken}"
+}
+```
+
+## Response
+
+```java
+{
+  "submissionId": 10,
+  "assignmentId": 1,
+  "assignmentTitle": "2차 수학 단원평가",
+  "studentId": "s1",
+  "studentName": "오태양",
+  "totalScore": 37,
+  "maxScore": 45,
+  "correctRate": 0.82,
+  "submittedAt": "2026-03-29T09:15:00Z",
+  "gradedAt": "2026-03-29T09:17:30Z",
+  "summary": {
+    "correct": 2,
+    "partial": 1,
+    "wrong": 0
+  },
+  "questions": [
+    {
+      "questionId": 1,
+      "questionContent": "이차방정식 x²-5x+6=0",
+      "result": "CORRECT",
+      "score": 10,
+      "maxScore": 10,
+      "imageUrl": "https://s3.amazonaws.com/...",
+      "reason": "풀이 과정과 최종 답이 모두 정확합니다.",
+      "regradeStatus": null
+    },
+    {
+      "questionId": 2,
+      "questionContent": "삼각형 ABC에서 sin A 구하기",
+      "result": "PARTIAL",
+      "score": 8,
+      "maxScore": 15,
+      "imageUrl": "https://s3.amazonaws.com/...",
+      "reason": "AC = 13은 정확하나, sin A와 cos A의 대변/인접변 관계를 혼동하였습니다.",
+      "regradeStatus": "PENDING"
+    },
+    {
+      "questionId": 3,
+      "questionContent": "함수 f(x) = 2x³-3x²-12x+5의 극값",
+      "result": "CORRECT",
+      "score": 19,
+      "maxScore": 20,
+      "imageUrl": "https://s3.amazonaws.com/...",
+      "reason": "극값 계산 정확. 단, 극소값 부호 서술이 누락되어 1점 감점.",
+      "regradeStatus": null
+    }
+  ]
+}
+```
+
+> `result` 값: `CORRECT` | `PARTIAL` | `WRONGregradeStatus` 값: `null`(요청 없음) | `PENDING`(진행 중) | `DONE`(완료)
+> 
+
+**에러**
+
+| Status | 조건 |
+| --- | --- |
+| 403 | STUDENT가 타인의 제출물 조회 시도 |
+| 404 | 존재하지 않는 submissionId |

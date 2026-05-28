@@ -1,0 +1,54 @@
+## Domain
+
+## Method
+
+Post
+
+## endpoint
+/api/submissions/{sid}/questions/{qid}/regrade
+## 비고
+
+## API 이름
+
+특정 문항 재채점 요청
+
+## API 설명
+
+특정 문항에 대해 재채점을 요청한다.
+이전 채점 결과를 포함해 Lambda를 비동기 재호출하고, Claude가 이전 판단의 오류 여부를 재검토한다.
+교사와 학생 모두 요청 가능하며, 이미 `PENDING`상태인 문항은 중복 요청이 불가하다.
+
+## Method / URL
+
+`POST /submissions/{sid}/questions/{qid}/regrade`
+
+## Request
+
+```json
+{
+  "reason": "풀이 과정에서 sin A의 대변 방향을 올바르게 기술했는데 오답 처리된 것 같습니다."
+}
+```
+
+## Response
+
+```java
+{
+  "submissionId": 10,
+  "questionId": 2,
+  "regradeStatus": "PENDING",
+  "requestedBy": "STUDENT",
+  "requestedAt": "2026-03-29T10:00:00Z"
+}
+```
+
+> HTTP 202 Accepted — 재채점은 비동기로 처리되며, 완료 시 Push 알림이 발송된다.
+> 
+
+**에러**
+
+| Status | 조건 |
+| --- | --- |
+| 400 | reason 누락 또는 10자 미만 |
+| 404 | 존재하지 않는 sid 또는 qid |
+| 409 | 이미 PENDING 상태인 문항 |

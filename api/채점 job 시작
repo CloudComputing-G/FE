@@ -1,0 +1,62 @@
+## Domain
+
+grading
+
+## Method
+
+Post
+
+## endpoint
+/api/internal/submissions/{sid}/grade
+
+## 비고
+API gatewary에 노출되지 않는 내부 전용 endpoint
+
+## API 이름
+
+채점 Job 시작 (내부 전용)
+
+## API 설명
+
+Dev 2의 confirmUpload 가 S3 업로드 완료를 확인한 뒤 호출하는 내부 전용 엔드포인트.
+Dev 3이 채점 Job 레코드를 생성하고 AWS Lambda를 비동기 호출한다.
+API Gateway에 노출되지 않으며 X-Internal-Secret 헤더로 인증한다.
+
+## Method / URL
+
+```
+POST /internal/submissions/{sid}/grade
+```
+
+## Request
+
+```json
+{
+  "assignmentId": 1,
+  "studentId": "s1",
+  "s3Key": "submissions/10/image.jpg",
+  "questionIds": [1, 2, 3]
+}
+```
+
+## Response
+
+```java
+{
+  "submissionId": 10,
+  "jobId": "job-uuid-1234",
+  "status": "PENDING",
+  "startedAt": "2026-03-29T09:15:30Z"
+}
+```
+
+> HTTP 202 Accepted — Lambda 완료를 기다리지 않고 즉시 반환한다.
+> 
+
+**에러**
+
+| Status | 조건 |
+| --- | --- |
+| 401 | X-Internal-Secret 불일치 |
+| 404 | 존재하지 않는 submissionId 또는 assignmentId |
+| 409 | 해당 submission에 이미 PENDING 또는 DONE Job 존재 |
