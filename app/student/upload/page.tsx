@@ -36,7 +36,7 @@ function StudentUploadContent() {
         const classrooms = await getMyClassrooms();
         if (classrooms.length === 0) return;
         const list = await getAssignments(classrooms[0].classId);
-        const submittable = list.filter((a) => a.status === "PUBLISHED");
+        const submittable = (list.data ?? []).filter((a) => a.status === "PUBLISHED");
         setAssignments(submittable);
         const initial = preselectedId
           ? Number(preselectedId)

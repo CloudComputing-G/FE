@@ -49,7 +49,7 @@ export default function StudentMyClassPage() {
         const cls = classrooms[0];
         setClassroom(cls);
         const list = await getAssignments(cls.classId);
-        setAssignments(list);
+        setAssignments(list.data ?? []);
       } catch (e) {
         console.error(e);
       } finally {
