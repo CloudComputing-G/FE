@@ -8,7 +8,8 @@ export interface ApiResponse<T> {
 
 export interface FieldError {
   field: string
-  message: string
+  rejectedValue?: string
+  reason?: string
 }
 
 // --- Auth ---
@@ -53,29 +54,29 @@ export interface ClassroomUpdateRequest {
 // --- Assignment ---
 export type AssignmentStatus = "DRAFT" | "PUBLISHED"
 
+export interface QuestionResponse {
+  questionId: number
+  content: string
+  answer: string | null
+  gradingCriteria: string | null
+  maxScore: number
+  orderNum: number
+}
+
 export interface AssignmentResponse {
   assignmentId: number
   title: string
-  subject: string
+  subject: string | null
   status: AssignmentStatus
-  dueDate: string
+  dueDate: string | null
   createdAt: string
   questions: QuestionResponse[]
   totalCount: number
   submittedCount: number
   gradedCount: number
   notSubmittedCount: number
-  problemUrl: string
-  answerUrl: string
-}
-
-export interface QuestionResponse {
-  questionId: number
-  content: string
-  answer: string
-  gradingCriteria: string
-  maxScore: number
-  orderNum: number
+  problemUrl: string | null
+  answerUrl: string | null
 }
 
 export interface QuestionRequest {
@@ -104,6 +105,55 @@ export interface AssignmentCreateRequest {
 export interface AssignmentUpdateRequest {
   title: string
   dueDate?: string
+}
+
+// --- Upload ---
+export interface UploadUrlResponse {
+  presignedUrl: string
+  s3Key: string
+}
+
+// student upload flow
+export interface PresignedUrlResponse {
+  submissionId: number
+  presignedUrl: string
+  s3Key: string
+}
+
+// --- Submission ---
+export interface SubmissionResponse {
+  submissionId: number
+  gradingStatus: "PENDING" | "DONE" | "FAILED"
+}
+
+export interface GradingStatusResponse {
+  status: "PENDING" | "DONE" | "FAILED"
+  startedAt: string | null
+  completedAt: string | null
+}
+
+export interface QuestionResult {
+  questionId: number
+  orderNum: number
+  content: string
+  maxScore: number
+  earnedScore: number
+  gradingResult: "CORRECT" | "PARTIAL" | "WRONG"
+  aiFeedback: string | null
+  studentImageUrl: string | null
+  regradeStatus: "NONE" | "PENDING" | "DONE" | null
+}
+
+export interface SubmissionResultResponse {
+  submissionId: number
+  assignmentTitle: string
+  totalScore: number
+  maxScore: number
+  accuracyRate: number
+  correctCount: number
+  partialCount: number
+  wrongCount: number
+  questions: QuestionResult[]
 }
 
 // --- Analytics ---

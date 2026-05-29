@@ -24,8 +24,8 @@ export default function LoginPage() {
     try {
       const res = await login({ email, password })
       if (res.success && res.data) {
-        localStorage.setItem("access_token", res.data.accessToken)
-        localStorage.setItem("refresh_token", res.data.refreshToken)
+        localStorage.setItem("accessToken", res.data.accessToken)
+        localStorage.setItem("refreshToken", res.data.refreshToken)
         localStorage.setItem("user_role", role)
         router.push(role === "TEACHER" ? "/teacher" : "/student/my-class")
       } else {

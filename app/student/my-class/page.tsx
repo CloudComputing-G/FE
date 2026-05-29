@@ -1,38 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, BarChart2, Upload, BookOpen, Users, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const assignments = [
-  {
-    id: 1,
-    title: "2차 수학 단원평가",
-    dueDate: "2026-05-28",
-    badge: { label: "미제출", color: "bg-[#F3F4F6] text-[#6B7280]" },
-    deadline: { label: "D-4", color: "bg-[#FEE2E2] text-[#EF4444]" },
-    count: null,
-    href: "/student/upload",
-  },
-  {
-    id: 2,
-    title: "1차 수학 단원평가",
-    dueDate: "2026-05-10",
-    badge: { label: "제출 완료", color: "bg-[#DBEAFE] text-[#3B82F6]" },
-    deadline: null,
-    count: null,
-    href: null,
-  },
-  {
-    id: 3,
-    title: "이차방정식 심화 문제",
-    dueDate: "2026-05-20",
-    badge: { label: "미제출", color: "bg-[#F3F4F6] text-[#6B7280]" },
-    deadline: null,
-    count: null,
-    href: "/student/upload",
-  },
-];
+import { getMyClassrooms } from "@/lib/api/classrooms";
+import { getAssignments } from "@/lib/api/assignments";
+import type { ClassroomResponse, AssignmentResponse } from "@/lib/api/types";
 
 const tabs = [
   { label: "결과", icon: BarChart2, href: "/student/results", active: false },
@@ -42,7 +16,53 @@ const tabs = [
   { label: "AI튜터", icon: Bot, href: "#", active: false },
 ];
 
+function assignmentBadge(item: AssignmentResponse) {
+  if (item.gradedCount > 0 && item.gradedCount === item.submittedCount) {
+    return { label: "채점완료", color: "bg-[#D1FAE5] text-[#10B981]" };
+  }
+  if (item.submittedCount > 0) {
+    return { label: "제출 완료", color: "bg-[#DBEAFE] text-[#3B82F6]" };
+  }
+  return { label: "미제출", color: "bg-[#F3F4F6] text-[#6B7280]" };
+}
+
+function deadlineLabel(dueDate: string | null) {
+  if (!dueDate) return null;
+  const diff = Math.ceil(
+    (new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  if (diff < 0) return null;
+  if (diff === 0) return { label: "D-Day", color: "bg-[#FEE2E2] text-[#EF4444]" };
+  return { label: `D-${diff}`, color: diff <= 3 ? "bg-[#FEE2E2] text-[#EF4444]" : "bg-[#F3F4F6] text-[#6B7280]" };
+}
+
 export default function StudentMyClassPage() {
+  const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
+  const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const classrooms = await getMyClassrooms();
+        if (classrooms.length === 0) return;
+        const cls = classrooms[0];
+        setClassroom(cls);
+        const list = await getAssignments(cls.classId);
+        setAssignments(list);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const studentName =
+    typeof window !== "undefined" ? localStorage.getItem("userName") ?? "학생" : "학생";
+
+  const activeCount = assignments.filter((a) => a.status === "PUBLISHED").length;
+
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-white mx-auto">
       {/* StatusBar */}
@@ -64,7 +84,7 @@ export default function StudentMyClassPage() {
         {/* Greeting Card */}
         <div className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-1 bg-gradient-to-br from-[#10B981] to-[#059669] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
           <p className="text-[18px] font-semibold text-white leading-[27px] tracking-tight">
-            안녕하세요, 오태양 님 👋
+            안녕하세요, {studentName} 님 👋
           </p>
           <p className="text-[14px] font-normal text-white/90 leading-[21px]">
             오늘도 열심히 공부해봐요!
@@ -78,10 +98,10 @@ export default function StudentMyClassPage() {
           </p>
           <div className="flex items-center justify-between">
             <p className="text-[18px] font-bold text-[#10B981] leading-[27px] tracking-tight">
-              3학년 2반
+              {loading ? "불러오는 중..." : classroom?.name ?? "반 정보 없음"}
             </p>
             <p className="text-[13px] font-normal text-[#6B7280] leading-[19.5px]">
-              진행중 과제 3개
+              {loading ? "" : `진행중 과제 ${activeCount}개`}
             </p>
           </div>
         </div>
@@ -94,72 +114,87 @@ export default function StudentMyClassPage() {
         </div>
 
         {/* Assignment Cards */}
-        <div className="flex flex-col gap-3">
-          {assignments.map((item) => {
-            const card = (
-              <div className="flex flex-col gap-2">
-                {/* Top row */}
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-[14px] h-[14px] text-[#6B7280]" />
-                      <span className="text-[13px] text-[#6B7280] leading-[19.5px]">
-                        {item.dueDate}
-                      </span>
-                    </div>
-                  </div>
-                  {item.deadline && (
-                    <span
-                      className={cn(
-                        "text-[11px] font-medium leading-[16.5px] px-2 py-[2px] rounded-full",
-                        item.deadline.color
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl px-4 py-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] bg-[#F9FAFB] h-[72px] animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {assignments.map((item) => {
+              const badge = assignmentBadge(item);
+              const deadline = deadlineLabel(item.dueDate);
+              const isGraded = badge.label === "채점완료";
+              const isNotSubmitted = badge.label === "미제출";
+              const savedSubmissionId = typeof window !== "undefined"
+                ? localStorage.getItem(`submission_${item.assignmentId}`)
+                : null;
+              const href = isGraded && savedSubmissionId
+                ? `/student/results?submissionId=${savedSubmissionId}`
+                : isGraded
+                ? null
+                : isNotSubmitted
+                ? `/student/upload?assignmentId=${item.assignmentId}`
+                : null;
+
+              const card = (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
+                        {item.title}
+                      </p>
+                      {item.dueDate && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-[14px] h-[14px] text-[#6B7280]" />
+                          <span className="text-[13px] text-[#6B7280] leading-[19.5px]">
+                            {item.dueDate.slice(0, 10)}
+                          </span>
+                        </div>
                       )}
-                    >
-                      {item.deadline.label}
-                    </span>
-                  )}
-                </div>
-
-                {/* Bottom row */}
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "text-[12px] font-medium leading-[18px] px-3 py-1 rounded-full",
-                      item.badge.color
+                    </div>
+                    {deadline && (
+                      <span className={cn("text-[11px] font-medium leading-[16.5px] px-2 py-[2px] rounded-full", deadline.color)}>
+                        {deadline.label}
+                      </span>
                     )}
-                  >
-                    {item.badge.label}
-                  </span>
-                  {item.count && (
-                    <span className="text-[12px] text-[#6B7280] leading-[18px]">
-                      {item.count}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-[12px] font-medium leading-[18px] px-3 py-1 rounded-full", badge.color)}>
+                      {badge.label}
                     </span>
-                  )}
+                    {item.questions.length > 0 && (
+                      <span className="text-[12px] text-[#6B7280] leading-[18px]">
+                        {item.questions.length}개 문항
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
+              );
 
-            return item.href ? (
-              <Link
-                key={item.id}
-                href={item.href}
-                className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-2 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] active:opacity-70"
-              >
-                {card}
-              </Link>
-            ) : (
-              <div
-                key={item.id}
-                className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-2 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]"
-              >
-                {card}
-              </div>
-            );
-          })}
-        </div>
+              return href ? (
+                <Link
+                  key={item.assignmentId}
+                  href={href}
+                  className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-2 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] active:opacity-70"
+                >
+                  {card}
+                </Link>
+              ) : (
+                <div
+                  key={item.assignmentId}
+                  className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-2 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]"
+                >
+                  {card}
+                </div>
+              );
+            })}
+            {assignments.length === 0 && (
+              <p className="text-[14px] text-[#6B7280] text-center py-8">과제가 없습니다.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* TabBar */}
@@ -171,15 +206,8 @@ export default function StudentMyClassPage() {
             className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70"
             aria-label={label}
           >
-            <Icon
-              className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")}
-            />
-            <span
-              className={cn(
-                "text-[11px] leading-[16.5px] tracking-wide",
-                active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]"
-              )}
-            >
+            <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
+            <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
               {label}
             </span>
           </Link>
