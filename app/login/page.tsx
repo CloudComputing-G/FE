@@ -123,6 +123,21 @@ export default function LoginPage() {
             {loading ? "로그인 중..." : "로그인"}
           </button>
         </form>
+
+        {/* 테스트 계정 */}
+        <div className="mt-8 w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-4">
+          <p className="text-center text-[13px] font-semibold text-[#374151] mb-3">테스트 계정</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#6B7280]">교사</span>
+              <span className="text-[13px] font-medium text-[#374151]">teacher2@test.com / teacher123</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#6B7280]">학생</span>
+              <span className="text-[13px] font-medium text-[#374151]">student@test.com / student123</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
