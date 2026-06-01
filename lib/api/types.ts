@@ -8,6 +8,7 @@ export interface ApiResponse<T> {
 export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
+  username: string;
 }
 
 export interface ClassroomResponse {
@@ -55,31 +56,41 @@ export interface SubmissionResponse {
 }
 
 export interface GradingStatusResponse {
+  submissionId: number;
   status: "PENDING" | "DONE" | "FAILED";
-  startedAt: string | null;
-  completedAt: string | null;
+  requestedAt: string | null;
+  gradedAt: string | null;
+  failReason: string | null;
 }
 
 export interface QuestionResult {
   questionId: number;
-  orderNum: number;
-  content: string;
+  questionContent: string;
+  result: "CORRECT" | "PARTIAL" | "WRONG";
+  score: number;
   maxScore: number;
-  earnedScore: number;
-  gradingResult: "CORRECT" | "PARTIAL" | "WRONG";
-  aiFeedback: string | null;
-  studentImageUrl: string | null;
-  regradeStatus: "NONE" | "PENDING" | "DONE" | null;
+  imageUrl: string | null;
+  reason: string | null;
+  regradeStatus: string | null;
+}
+
+export interface Summary {
+  correct: number;
+  partial: number;
+  wrong: number;
 }
 
 export interface SubmissionResultResponse {
   submissionId: number;
+  assignmentId: number;
   assignmentTitle: string;
+  studentId: number;
+  studentName: string;
   totalScore: number;
   maxScore: number;
-  accuracyRate: number;
-  correctCount: number;
-  partialCount: number;
-  wrongCount: number;
+  correctRate: number;
+  submittedAt: string | null;
+  gradedAt: string | null;
+  summary: Summary;
   questions: QuestionResult[];
 }

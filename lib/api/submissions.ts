@@ -19,11 +19,9 @@ export async function getSubmissionResults(
 
 export async function requestRegrade(
   submissionId: number,
-  questionId: number,
-  reason: string
+  questionId: number
 ): Promise<void> {
   await apiClient.post(
-    `/api/submissions/${submissionId}/questions/${questionId}/regrade`,
-    { reason }
+    `/api/submissions/${submissionId}/questions/${questionId}/regrade`
   );
 }

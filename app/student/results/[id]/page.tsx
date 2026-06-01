@@ -16,7 +16,7 @@ const tabs = [
   { label: "AI튜터",  icon: Bot,       href: "#",                  active: false },
 ];
 
-function statusBadge(r: QuestionResult["gradingResult"]) {
+function statusBadge(r: QuestionResult["result"]) {
   if (r === "CORRECT") return { label: "정답",    bg: "bg-[#D1FAE5]", text: "text-[#10B981]" };
   if (r === "PARTIAL") return { label: "부분점수", bg: "bg-[#FEF3C7]", text: "text-[#F59E0B]" };
   return                      { label: "오답",    bg: "bg-[#FEE2E2]", text: "text-[#EF4444]" };
@@ -29,10 +29,9 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const questionId = Number(id);
 
   const [question, setQuestion] = useState<QuestionResult | null>(null);
+  const [questionNum, setQuestionNum] = useState<number>(0);
   const [assignmentTitle, setAssignmentTitle] = useState("");
   const [loading, setLoading] = useState(true);
-  const [regradeReason, setRegradeReason] = useState("");
-  const [regradeOpen, setRegradeOpen] = useState(false);
   const [regradeStatus, setRegradeStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
 
   useEffect(() => {
@@ -40,25 +39,28 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
     getSubmissionResults(submissionId)
       .then((result) => {
         setAssignmentTitle(result.assignmentTitle);
-        const q = result.questions.find((q) => q.questionId === questionId);
-        setQuestion(q ?? null);
+        const idx = result.questions.findIndex((q) => q.questionId === questionId);
+        if (idx !== -1) {
+          setQuestion(result.questions[idx]);
+          setQuestionNum(idx + 1);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [submissionId, questionId]);
 
   async function handleRegrade() {
-    if (regradeReason.length < 10 || !submissionId) return;
+    if (!submissionId) return;
     setRegradeStatus("submitting");
     try {
-      await requestRegrade(submissionId, questionId, regradeReason);
+      await requestRegrade(submissionId, questionId);
       setRegradeStatus("done");
     } catch {
       setRegradeStatus("error");
     }
   }
 
-  const badge = question ? statusBadge(question.gradingResult) : null;
+  const badge = question ? statusBadge(question.result) : null;
 
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-white mx-auto">
@@ -85,7 +87,7 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
             <ChevronLeft className="w-6 h-6 text-[#111827]" />
           </Link>
           <h1 className="text-[20px] font-bold text-[#111827] leading-[30px] tracking-tight">
-            {loading ? "문제" : question ? `${question.orderNum}번 문제` : "문제"}
+            {loading ? "문제" : question ? `${questionNum}번 문제` : "문제"}
           </h1>
         </div>
 
@@ -108,13 +110,13 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
               <div className="bg-[#F9FAFB] rounded-lg px-4 py-4">
                 <p className="text-[14px] text-[#111827] leading-[21px] tracking-tight">
-                  {question.content}
+                  {question.questionContent}
                 </p>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] text-[#6B7280] leading-[19.5px] tracking-tight">배점</span>
                 <span className="text-[18px] font-bold text-[#111827] leading-[27px] tracking-tight">
-                  {question.earnedScore}/{question.maxScore}점
+                  {question.score}/{question.maxScore}점
                 </span>
               </div>
             </div>
@@ -122,9 +124,9 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
             {/* Card 2 — 내 풀이 */}
             <div className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
               <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">내 풀이</span>
-              {question.studentImageUrl ? (
+              {question.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={question.studentImageUrl} alt="학생 풀이" className="w-full rounded-lg object-contain" />
+                <img src={question.imageUrl} alt="학생 풀이" className="w-full rounded-lg object-contain" />
               ) : (
                 <div className="bg-[#F3F4F6] rounded-lg flex items-center justify-center" style={{ height: 280 }}>
                   <span className="text-[16px] text-[#6B7280] leading-[24px]">[학생 풀이 이미지]</span>
@@ -138,9 +140,9 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
                 AI 채점 피드백
               </span>
               <div className="flex flex-col gap-3">
-                {question.aiFeedback ? (
+                {question.reason ? (
                   <p className="text-[14px] leading-[21px] tracking-tight text-[#6B7280]">
-                    {question.aiFeedback}
+                    {question.reason}
                   </p>
                 ) : (
                   <p className="text-[14px] text-[#9CA3AF] leading-[21px]">피드백 없음</p>
@@ -168,41 +170,16 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
                 <p className="text-[14px] text-[#F59E0B] font-semibold text-center py-2">재채점 검토 중</p>
               ) : (
                 <>
-                  {regradeOpen && (
-                    <div className="flex flex-col gap-2">
-                      <textarea
-                        value={regradeReason}
-                        onChange={(e) => setRegradeReason(e.target.value)}
-                        placeholder="이의 사유를 입력해주세요 (10자 이상)"
-                        className="w-full border border-[#D1D5DB] rounded-lg px-3 py-2 text-[14px] text-[#111827] resize-none focus:outline-none focus:border-[#10B981]"
-                        rows={3}
-                      />
-                      {regradeStatus === "error" && (
-                        <p className="text-[12px] text-[#EF4444]">요청에 실패했습니다. 다시 시도해주세요.</p>
-                      )}
-                      <button
-                        onClick={handleRegrade}
-                        disabled={regradeReason.length < 10 || regradeStatus === "submitting"}
-                        className={cn(
-                          "w-full rounded-lg py-3 active:opacity-70",
-                          regradeReason.length < 10 ? "border border-[#D1D5DB]" : "border border-[#10B981]"
-                        )}
-                      >
-                        <span className={cn(
-                          "text-[15px] font-semibold leading-[22.5px] tracking-tight",
-                          regradeReason.length < 10 ? "text-[#9CA3AF]" : "text-[#10B981]"
-                        )}>
-                          {regradeStatus === "submitting" ? "요청 중..." : "제출"}
-                        </span>
-                      </button>
-                    </div>
+                  {regradeStatus === "error" && (
+                    <p className="text-[12px] text-[#EF4444]">요청에 실패했습니다. 다시 시도해주세요.</p>
                   )}
                   <button
-                    onClick={() => setRegradeOpen((o) => !o)}
+                    onClick={handleRegrade}
+                    disabled={regradeStatus === "submitting"}
                     className="w-full border border-[#10B981] rounded-lg py-3 active:opacity-70"
                   >
                     <span className="text-[15px] font-semibold text-[#10B981] leading-[22.5px] tracking-tight">
-                      {regradeOpen ? "취소" : "재채점 요청하기"}
+                      {regradeStatus === "submitting" ? "요청 중..." : "재채점 요청하기"}
                     </span>
                   </button>
                 </>

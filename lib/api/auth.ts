@@ -21,6 +21,7 @@ export async function signup(
 export function saveTokens(tokens: TokenResponse) {
   localStorage.setItem("accessToken", tokens.accessToken);
   localStorage.setItem("refreshToken", tokens.refreshToken);
+  localStorage.setItem("userName", tokens.username);
 }
 
 export function clearTokens() {

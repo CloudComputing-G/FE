@@ -25,8 +25,8 @@ function StudentUploadContent() {
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,23 +51,55 @@ function StudentUploadContent() {
   const selected = assignments.find((a) => a.assignmentId === selectedId);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+    setFiles(selected);
+    setPreviewUrls(selected.map((f) => URL.createObjectURL(f)));
+  }
+
+  async function mergeFilesToBlob(fileList: File[]): Promise<Blob> {
+    if (fileList.length === 1) return fileList[0];
+    const images = await Promise.all(
+      fileList.map(
+        (f) =>
+          new Promise<HTMLImageElement>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.src = URL.createObjectURL(f);
+          })
+      )
+    );
+    const width = Math.max(...images.map((i) => i.naturalWidth));
+    const height = images.reduce((sum, i) => sum + i.naturalHeight, 0);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+    let y = 0;
+    for (const img of images) {
+      ctx.drawImage(img, 0, y, img.naturalWidth, img.naturalHeight);
+      y += img.naturalHeight;
+    }
+    return new Promise<Blob>((resolve) =>
+      canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.92)
+    );
   }
 
   async function handleUpload() {
-    if (!file || !selectedId) return;
+    if (files.length === 0 || !selectedId) return;
     setUploading(true);
     setError(null);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const { submissionId, presignedUrl } = await getUploadUrl(selectedId, ext);
-      await uploadToS3(presignedUrl, file);
+      const blob = await mergeFilesToBlob(files);
+      const uploadFile = new File([blob], "solution.jpg", { type: "image/jpeg" });
+      const { submissionId, presignedUrl } = await getUploadUrl(selectedId, "jpg");
+      await uploadToS3(presignedUrl, uploadFile);
       await confirmUpload(selectedId, submissionId);
-      localStorage.setItem(`submission_${selectedId}`, String(submissionId));
-      router.push(`/student/upload/grading?submissionId=${submissionId}`);
+      const userName = localStorage.getItem("userName") ?? "";
+      localStorage.setItem(`submission_${userName}_${selectedId}`, String(submissionId));
+      const questionCount = selected?.questions?.length ?? 0;
+      const title = encodeURIComponent(selected?.title ?? "");
+      router.push(`/student/upload/grading?submissionId=${submissionId}&total=${questionCount}&title=${title}`);
     } catch (e) {
       console.error(e);
       setError("업로드 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -165,17 +197,22 @@ function StudentUploadContent() {
             <input
               type="file"
               accept="image/jpeg,image/png,image/heic,image/*"
+              multiple
               className="hidden"
               onChange={handleFileChange}
             />
-            {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previewUrl}
-                alt="풀이 미리보기"
-                className="w-full h-full object-contain"
-                style={{ minHeight: 311 }}
-              />
+            {previewUrls.length > 0 ? (
+              <div className="w-full flex flex-col gap-1 p-2">
+                {previewUrls.map((url, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`풀이 미리보기 ${i + 1}`}
+                    className="w-full object-contain rounded"
+                  />
+                ))}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-[65px] px-4">
                 <div className="w-16 h-16 rounded-full bg-[#E5E7EB] flex items-center justify-center mb-6">
@@ -185,7 +222,7 @@ function StudentUploadContent() {
                   풀이 사진 추가
                 </p>
                 <p className="text-[13px] font-medium text-[#6B7280] leading-[19.5px] text-center px-4 mb-2">
-                  탭하여 사진을 선택하거나 찍으세요 또는 파일
+                  여러 장 선택 가능 (세로로 합쳐서 업로드)
                 </p>
                 <p className="text-[12px] font-medium text-[#D1D5DB] leading-[18px] text-center">
                   JPG, PNG, HEIC 지원
@@ -217,10 +254,10 @@ function StudentUploadContent() {
           {/* Upload Button */}
           <button
             onClick={handleUpload}
-            disabled={!file || !selectedId || uploading}
+            disabled={files.length === 0 || !selectedId || uploading}
             className={cn(
               "w-full rounded-xl py-4 flex items-center justify-center active:opacity-80",
-              !file || !selectedId || uploading
+              files.length === 0 || !selectedId || uploading
                 ? "bg-[#D1D5DB]"
                 : "bg-[#10B981]"
             )}

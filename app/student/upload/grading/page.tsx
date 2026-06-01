@@ -20,29 +20,36 @@ function GradingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const submissionId = Number(searchParams.get("submissionId"));
+  const initialTotal = Number(searchParams.get("total")) || 0;
+  const initialTitle = searchParams.get("title") ? decodeURIComponent(searchParams.get("title")!) : "";
 
   const [questions, setQuestions] = useState<QuestionResult[]>([]);
   const [doneCount, setDoneCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [assignmentTitle, setAssignmentTitle] = useState("");
-  const [done, setDone] = useState(false);
+  const [totalCount, setTotalCount] = useState(initialTotal);
+  const [assignmentTitle, setAssignmentTitle] = useState(initialTitle);
+  const [gradingDone, setGradingDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [pollCount, setPollCount] = useState(0);
 
   const poll = useCallback(async () => {
     if (!submissionId) return;
     try {
       const status = await getGradingStatus(submissionId);
       if (status.status === "DONE") {
-        setDone(true);
         const results = await getSubmissionResults(submissionId);
         setAssignmentTitle(results.assignmentTitle);
         setQuestions(results.questions);
         setDoneCount(results.questions.length);
         setTotalCount(results.questions.length);
+        setGradingDone(true);
       } else if (status.status === "FAILED") {
-        setDone(true);
+        setFailed(true);
+        setGradingDone(true);
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setPollCount((c) => c + 1);
     }
   }, [submissionId]);
 
@@ -53,13 +60,17 @@ function GradingContent() {
     return () => clearInterval(interval);
   }, [submissionId, poll]);
 
+  // 채점 완료 후 2초 뒤 결과 페이지로 이동
   useEffect(() => {
-    if (done) {
+    if (!gradingDone) return;
+    const timer = setTimeout(() => {
       router.push(`/student/results?submissionId=${submissionId}`);
-    }
-  }, [done, submissionId, router]);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [gradingDone, submissionId, router]);
 
-  const displayTotal = totalCount || questions.length || 7;
+
+  const displayTotal = totalCount || questions.length;
 
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-white mx-auto">
@@ -83,10 +94,10 @@ function GradingContent() {
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2">
             <h1 className="text-[24px] font-bold text-[#111827] leading-[36px] tracking-wide">
-              AI 채점 중
+              {gradingDone && !failed ? "채점 완료!" : "AI 채점 중"}
             </h1>
             <p className="text-[14px] text-[#6B7280] leading-[21px] tracking-tight">
-              잠시만 기다려주세요
+              {gradingDone && !failed ? "잠시 후 결과 페이지로 이동합니다" : "잠시만 기다려주세요"}
             </p>
           </div>
           <Link
@@ -109,22 +120,44 @@ function GradingContent() {
                 업로드 완료
               </span>
               <p className="text-[13px] text-[#6B7280] leading-[19.5px] tracking-tight">
-                {assignmentTitle || "과제"}<br />{displayTotal}개 문항
+                {assignmentTitle || "과제"}<br />{displayTotal > 0 ? `${displayTotal}개 문항` : ""}
               </p>
             </div>
           </div>
         </div>
 
         {/* AI progress card */}
-        <div className="bg-white rounded-xl border border-[#BFDBFE] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 py-4">
+        <div className={cn(
+          "bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 py-4 border",
+          failed ? "border-[#FCA5A5]" : gradingDone ? "border-[#6EE7B7]" : "border-[#BFDBFE]"
+        )}>
           <div className="flex items-center gap-3">
-            <Scissors className="w-6 h-6 text-[#3B82F6] flex-shrink-0" />
+            {failed
+              ? <Scissors className="w-6 h-6 text-[#EF4444] flex-shrink-0" />
+              : gradingDone
+              ? <CheckCircle2 className="w-6 h-6 text-[#10B981] flex-shrink-0" />
+              : <Scissors className="w-6 h-6 text-[#3B82F6] flex-shrink-0" />
+            }
             <div className="flex flex-col gap-1">
-              <p className="text-[14px] font-semibold text-[#1E40AF] leading-[21px] tracking-tight">
-                AI가 문항별로 자동 분리하여 채점 중...
+              <p className={cn(
+                "text-[14px] font-semibold leading-[21px] tracking-tight",
+                failed ? "text-[#DC2626]" : gradingDone ? "text-[#065F46]" : "text-[#1E40AF]"
+              )}>
+                {failed
+                  ? "채점 중 오류가 발생했습니다"
+                  : gradingDone
+                  ? "모든 문항 채점이 완료되었습니다"
+                  : "AI가 문항별로 자동 분리하여 채점 중..."}
               </p>
-              <p className="text-[12px] text-[#1E40AF] leading-[18px]">
-                {doneCount}/{displayTotal} 문항 채점 완료
+              <p className={cn(
+                "text-[12px] leading-[18px]",
+                failed ? "text-[#DC2626]" : gradingDone ? "text-[#065F46]" : "text-[#1E40AF]"
+              )}>
+                {failed
+                  ? "결과 보기를 눌러 확인하세요"
+                  : gradingDone
+                  ? `${doneCount}/${displayTotal || "?"} 문항 채점 완료`
+                  : `서버 응답 대기 중${".".repeat((pollCount % 3) + 1)}`}
               </p>
             </div>
           </div>
@@ -142,7 +175,7 @@ function GradingContent() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
                       <span className="text-[15px] font-medium text-[#111827] leading-[22.5px] tracking-tight">
-                        {q.orderNum}번 문제
+                        {questions.indexOf(q) + 1}번 문제
                       </span>
                     </div>
                     <span className="text-[12px] font-medium leading-[18px] px-3 py-1 rounded-full bg-[#D1FAE5] text-[#10B981]">
@@ -151,7 +184,7 @@ function GradingContent() {
                   </div>
                 </div>
               ))
-            : Array.from({ length: 7 }, (_, i) => (
+            : Array.from({ length: displayTotal }, (_, i) => (
                 <div
                   key={i}
                   className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 py-4"

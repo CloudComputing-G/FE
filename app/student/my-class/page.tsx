@@ -16,14 +16,11 @@ const tabs = [
   { label: "AI튜터", icon: Bot, href: "#", active: false },
 ];
 
-function assignmentBadge(item: AssignmentResponse) {
-  if (item.gradedCount > 0 && item.gradedCount === item.submittedCount) {
-    return { label: "채점완료", color: "bg-[#D1FAE5] text-[#10B981]" };
-  }
-  if (item.submittedCount > 0) {
-    return { label: "제출 완료", color: "bg-[#DBEAFE] text-[#3B82F6]" };
-  }
-  return { label: "미제출", color: "bg-[#F3F4F6] text-[#6B7280]" };
+function assignmentBadge(item: AssignmentResponse, mySubmissionId: string | null) {
+  if (!mySubmissionId) return { label: "미제출", color: "bg-[#F3F4F6] text-[#6B7280]" };
+  // 내가 제출한 submission이 있으면 채점완료 여부는 status polling 없이 낙관적으로 표시
+  // 실제 채점 완료 판단은 결과 페이지에서 확인
+  return { label: "제출 완료", color: "bg-[#DBEAFE] text-[#3B82F6]" };
 }
 
 function deadlineLabel(dueDate: string | null) {
@@ -40,12 +37,18 @@ export default function StudentMyClassPage() {
   const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [studentName, setStudentName] = useState("학생");
+  const [currentUserName, setCurrentUserName] = useState("");
 
   useEffect(() => {
+    const name = localStorage.getItem("userName") ?? "학생";
+    setStudentName(name);
+    setCurrentUserName(name);
+
     (async () => {
       try {
         const classrooms = await getMyClassrooms();
-        if (classrooms.length === 0) return;
+        if (classrooms.length === 0) { setLoading(false); return; }
         const cls = classrooms[0];
         setClassroom(cls);
         const list = await getAssignments(cls.classId);
@@ -57,9 +60,6 @@ export default function StudentMyClassPage() {
       }
     })();
   }, []);
-
-  const studentName =
-    typeof window !== "undefined" ? localStorage.getItem("userName") ?? "학생" : "학생";
 
   const activeCount = assignments.filter((a) => a.status === "PUBLISHED").length;
 
@@ -83,7 +83,7 @@ export default function StudentMyClassPage() {
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4 flex flex-col gap-3">
         {/* Greeting Card */}
         <div className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-1 bg-gradient-to-br from-[#10B981] to-[#059669] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
-          <p className="text-[18px] font-semibold text-white leading-[27px] tracking-tight">
+          <p className="text-[18px] font-semibold text-white leading-[27px] tracking-tight" suppressHydrationWarning>
             안녕하세요, {studentName} 님 👋
           </p>
           <p className="text-[14px] font-normal text-white/90 leading-[21px]">
@@ -123,18 +123,13 @@ export default function StudentMyClassPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {assignments.map((item) => {
-              const badge = assignmentBadge(item);
+              const savedSubmissionId = localStorage.getItem(`submission_${currentUserName}_${item.assignmentId}`);
+              const badge = assignmentBadge(item, savedSubmissionId);
               const deadline = deadlineLabel(item.dueDate);
-              const isGraded = badge.label === "채점완료";
-              const isNotSubmitted = badge.label === "미제출";
-              const savedSubmissionId = typeof window !== "undefined"
-                ? localStorage.getItem(`submission_${item.assignmentId}`)
-                : null;
-              const href = isGraded && savedSubmissionId
+              const isSubmitted = badge.label === "제출 완료";
+              const href = isSubmitted && savedSubmissionId
                 ? `/student/results?submissionId=${savedSubmissionId}`
-                : isGraded
-                ? null
-                : isNotSubmitted
+                : !isSubmitted
                 ? `/student/upload?assignmentId=${item.assignmentId}`
                 : null;
 

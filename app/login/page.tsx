@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { login, saveTokens } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,15 +17,13 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
-    await new Promise((r) => setTimeout(r, 300));
-
-    if (id === "teacher" && password === "teacher123") {
-      router.push("/teacher");
-    } else if (id === "student" && password === "student123") {
+    try {
+      const tokens = await login(id, password);
+      saveTokens(tokens);
       router.push("/student/my-class");
-    } else {
+    } catch {
       setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+    } finally {
       setLoading(false);
     }
   };
@@ -101,20 +100,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Test Accounts */}
-        <div className="mt-8 w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-4">
-          <p className="text-center text-[13px] font-semibold text-[#374151] mb-3">테스트 계정</p>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#6B7280]">교사:</span>
-              <span className="text-[13px] text-[#374151] font-medium">teacher / teacher123</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#6B7280]">학생:</span>
-              <span className="text-[13px] text-[#374151] font-medium">student / student123</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
