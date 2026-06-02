@@ -122,15 +122,12 @@ export default function NewAssignmentPage() {
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         problemS3Key,
         answerS3Key,
-        // 답지가 있으면 백엔드가 문항을 자동 추출하므로 questions 생략
-        questions: answerFile
-          ? undefined
-          : answers.map((answer, i) => ({
-              orderNum: i + 1,
-              content: `${i + 1}번 문항`,
-              answer: answer.trim() || undefined,
-              maxScore: scores[i],
-            })),
+        questions: answers.map((answer, i) => ({
+          orderNum: i + 1,
+          content: `${i + 1}번 문항`,
+          answer: answer.trim() || undefined,
+          maxScore: scores[i],
+        })),
       })
 
       if (shouldPublish && created.data?.assignmentId) {
@@ -216,69 +213,64 @@ export default function NewAssignmentPage() {
               hint="답지 업로드 시 AI가 자동으로 채점 기준을 분석합니다"
               file={answerFile} onChange={setAnswerFile} />
 
-            {/* 정답 입력 — 답지 없을 때만 표시 */}
-            {answerFile ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-6 py-5">
-                <p className="text-sm font-medium text-green-800">
-                  답지가 업로드되었습니다. 문항 수와 정답은 AI가 답지에서 자동으로 추출합니다.
-                </p>
-                <p className="mt-1 text-xs text-green-600">
-                  과제 저장 후 문항별 채점 기준을 직접 수정할 수 있습니다.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    정답 입력
-                    <span className="ml-1.5 text-xs font-normal text-gray-400">(선택 · 답지 업로드 시 자동 추출)</span>
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">문항 수</span>
-                    <button type="button" onClick={() => handleCountChange(questionCount - 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <input
-                      type="number" value={questionCount} min={1} max={30}
-                      onChange={(e) => handleCountChange(Number(e.target.value))}
-                      className="h-7 w-12 rounded-lg border border-gray-200 text-center text-sm outline-none focus:border-green-500" />
-                    <button type="button" onClick={() => handleCountChange(questionCount + 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
+            {/* 정답 입력 */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  문항 수 / 정답 입력
+                  <span className="ml-1.5 text-xs font-normal text-gray-400">(정답 선택)</span>
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">문항 수</span>
+                  <button type="button" onClick={() => handleCountChange(questionCount - 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <input
+                    type="number" value={questionCount} min={1} max={30}
+                    onChange={(e) => handleCountChange(Number(e.target.value))}
+                    className="h-7 w-12 rounded-lg border border-gray-200 text-center text-sm outline-none focus:border-green-500" />
+                  <button type="button" onClick={() => handleCountChange(questionCount + 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+                    <Plus className="h-3 w-3" />
+                  </button>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-5 gap-2">
-                  {answers.map((answer, i) => (
-                    <div key={i} className="flex flex-col gap-1">
-                      <span className="text-center text-xs text-gray-400">{i + 1}번</span>
-                      <input
-                        value={answer}
-                        onChange={(e) => {
-                          const next = [...answers]
-                          next[i] = e.target.value
-                          setAnswers(next)
-                        }}
-                        placeholder="—"
-                        className="h-9 w-full rounded-lg border border-gray-200 px-2 text-center text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
-                      />
-                      <input
-                        type="number" value={scores[i]} min={1}
-                        onChange={(e) => {
-                          const next = [...scores]
-                          next[i] = Number(e.target.value)
-                          setScores(next)
-                        }}
-                        className="h-7 w-full rounded-lg border border-gray-200 px-2 text-center text-xs text-gray-500 outline-none focus:border-green-500"
-                      />
-                      <span className="text-center text-xs text-gray-300">배점</span>
-                    </div>
-                  ))}
+              {answerFile && (
+                <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+                  💡 답지를 업로드했다면 문항 수를 답지의 실제 문항 수와 동일하게 맞춰주세요.
                 </div>
+              )}
+
+              <div className="grid grid-cols-5 gap-2">
+                {answers.map((answer, i) => (
+                  <div key={i} className="flex flex-col gap-1">
+                    <span className="text-center text-xs text-gray-400">{i + 1}번</span>
+                    <input
+                      value={answer}
+                      onChange={(e) => {
+                        const next = [...answers]
+                        next[i] = e.target.value
+                        setAnswers(next)
+                      }}
+                      placeholder="—"
+                      className="h-9 w-full rounded-lg border border-gray-200 px-2 text-center text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
+                    />
+                    <input
+                      type="number" value={scores[i]} min={1}
+                      onChange={(e) => {
+                        const next = [...scores]
+                        next[i] = Number(e.target.value)
+                        setScores(next)
+                      }}
+                      className="h-7 w-full rounded-lg border border-gray-200 px-2 text-center text-xs text-gray-500 outline-none focus:border-green-500"
+                    />
+                    <span className="text-center text-xs text-gray-300">배점</span>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
