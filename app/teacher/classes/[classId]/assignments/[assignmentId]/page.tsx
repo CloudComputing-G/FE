@@ -323,7 +323,7 @@ export default function AssignmentPage() {
   const assignment = assignmentData?.data
   const analytics: AssignmentAnalyticsResponse[] = analyticsData?.data ?? []
   const questions: QuestionResponse[] = assignment?.questions ?? []
-  const regradeRequests: RegradeRequest[] = regradeData ?? []
+  const regradeRequests: RegradeRequest[] = Array.isArray(regradeData) ? regradeData : []
   const pendingRequests = regradeRequests.filter((r) => r.status === "PENDING")
 
   const studentSummaries = useMemo<StudentSummary[]>(() => {
