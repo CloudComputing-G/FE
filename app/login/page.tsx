@@ -30,6 +30,7 @@ export default function LoginPage() {
 
       localStorage.setItem("accessToken", res.data.accessToken);
       localStorage.setItem("refreshToken", res.data.refreshToken);
+      if (res.data.username) localStorage.setItem("userName", res.data.username);
 
       if (id.includes("teacher")) {
         router.push("/teacher");

@@ -39,7 +39,7 @@ const tabs = [
   { label: "업로드", icon: Upload, href: "/student/upload", active: false },
   { label: "오답노트", icon: BookOpen, href: "#", active: false },
   { label: "내 반", icon: Users, href: "/student/my-class", active: true },
-  { label: "AI튜터", icon: Bot, href: "#", active: false },
+  { label: "AI튜터", icon: Bot, href: "/student/chat", active: false },
 ];
 
 export default function StudentMyClassGradedPage() {

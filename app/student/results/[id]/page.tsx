@@ -3,17 +3,18 @@
 import { use, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, AlertTriangle, BarChart2, Upload, BookOpen, Users, Bot } from "lucide-react";
+import { ChevronLeft, AlertTriangle, BarChart2, Upload, BookOpen, Users, Bot, Shuffle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSubmissionResults, requestRegrade } from "@/lib/api/submissions";
+import { getSimilarProblem } from "@/lib/api/chat";
 import type { QuestionResult } from "@/lib/api/types";
 
 const tabs = [
-  { label: "결과",    icon: BarChart2, href: "/student/results",   active: true },
-  { label: "업로드",  icon: Upload,    href: "/student/upload",    active: false },
-  { label: "오답노트", icon: BookOpen,  href: "#",                  active: false },
-  { label: "내 반",   icon: Users,     href: "/student/my-class",  active: false },
-  { label: "AI튜터",  icon: Bot,       href: "#",                  active: false },
+  { label: "결과",    icon: BarChart2, href: "/student/results",    active: true },
+  { label: "업로드",  icon: Upload,    href: "/student/upload",     active: false },
+  { label: "오답노트", icon: BookOpen,  href: "/student/wrong-notes", active: false },
+  { label: "내 반",   icon: Users,     href: "/student/my-class",   active: false },
+  { label: "AI튜터",  icon: Bot,       href: "/student/chat",       active: false },
 ];
 
 function statusBadge(r: QuestionResult["result"]) {
@@ -27,12 +28,15 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const searchParams = useSearchParams();
   const submissionId = Number(searchParams.get("submissionId"));
   const questionId = Number(id);
+  const from = searchParams.get("from"); // "wrong-notes"면 오답노트에서 진입
 
   const [question, setQuestion] = useState<QuestionResult | null>(null);
   const [questionNum, setQuestionNum] = useState<number>(0);
   const [assignmentTitle, setAssignmentTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [regradeStatus, setRegradeStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [similarProblem, setSimilarProblem] = useState<string | null>(null);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   useEffect(() => {
     if (!submissionId) { setLoading(false); return; }
@@ -48,6 +52,20 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [submissionId, questionId]);
+
+  async function handleSimilarProblem() {
+    if (loadingSimilar) return;
+    if (similarProblem) { setSimilarProblem(null); return; }
+    setLoadingSimilar(true);
+    try {
+      const result = await getSimilarProblem(questionId);
+      setSimilarProblem(result);
+    } catch {
+      setSimilarProblem("현재 유사 문제를 만드는 중입니다. 잠시 시간이 걸리니 기다려주세요.");
+    } finally {
+      setLoadingSimilar(false);
+    }
+  }
 
   async function handleRegrade() {
     if (!submissionId) return;
@@ -83,12 +101,19 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link href={`/student/results?submissionId=${submissionId}`} aria-label="뒤로가기" className="active:opacity-70">
+          <Link href={from === "wrong-notes" ? `/student/wrong-notes?submissionId=${submissionId}` : `/student/results?submissionId=${submissionId}`} aria-label="뒤로가기" className="active:opacity-70">
             <ChevronLeft className="w-6 h-6 text-[#111827]" />
           </Link>
-          <h1 className="text-[20px] font-bold text-[#111827] leading-[30px] tracking-tight">
+          <h1 className="flex-1 text-[20px] font-bold text-[#111827] leading-[30px] tracking-tight">
             {loading ? "문제" : question ? `${questionNum}번 문제` : "문제"}
           </h1>
+          <Link
+            href={`/student/chat/${questionId}?submissionId=${submissionId}`}
+            className="flex items-center gap-1 px-3 py-2 rounded-full bg-[#F0FDF4] active:opacity-70"
+          >
+            <Bot className="w-4 h-4 text-[#10B981]" />
+            <span className="text-[12px] font-medium text-[#10B981]">AI 튜터</span>
+          </Link>
         </div>
 
         {loading ? (
@@ -122,17 +147,13 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
             </div>
 
             {/* Card 2 — 내 풀이 */}
-            <div className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
-              <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">내 풀이</span>
-              {question.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+            {question.imageUrl && (
+              <div className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
+                <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">내 풀이</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={question.imageUrl} alt="학생 풀이" className="w-full rounded-lg object-contain" />
-              ) : (
-                <div className="bg-[#F3F4F6] rounded-lg flex items-center justify-center" style={{ height: 280 }}>
-                  <span className="text-[16px] text-[#6B7280] leading-[24px]">[학생 풀이 이미지]</span>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Card 3 — AI 채점 피드백 */}
             <div className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
@@ -148,9 +169,36 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   <p className="text-[14px] text-[#9CA3AF] leading-[21px]">피드백 없음</p>
                 )}
               </div>
+              <button
+                onClick={handleSimilarProblem}
+                disabled={loadingSimilar}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-[#F0FDF4] active:opacity-70 disabled:opacity-50"
+              >
+                {loadingSimilar
+                  ? <Loader2 className="w-4 h-4 text-[#10B981] animate-spin" />
+                  : <Shuffle className="w-4 h-4 text-[#10B981]" />
+                }
+                <span className="text-[14px] font-semibold text-[#10B981] leading-[21px]">
+                  {loadingSimilar ? "생성 중..." : similarProblem ? "유사문제 닫기" : "유사문제 생성"}
+                </span>
+              </button>
             </div>
 
-            {/* Card 4 — 재채점 요청 */}
+            {/* Card 4 — 유사문제 */}
+            {similarProblem && (
+              <div className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
+                <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
+                  유사문제
+                </span>
+                <div className="bg-[#F9FAFB] rounded-lg px-4 py-4">
+                  <p className="text-[14px] text-[#111827] leading-[21px] tracking-tight whitespace-pre-wrap">
+                    {similarProblem}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Card 5 — 재채점 요청 */}
             <div className="bg-white rounded-xl border border-[#FDE68A] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-3">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-[#92400E] flex-shrink-0 mt-[1px]" />

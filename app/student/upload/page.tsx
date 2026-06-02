@@ -12,9 +12,9 @@ import type { AssignmentResponse } from "@/lib/api/types";
 const tabs = [
   { label: "결과", icon: BarChart2, href: "/student/results", active: false },
   { label: "업로드", icon: Upload, href: "/student/upload", active: true },
-  { label: "오답노트", icon: BookOpen, href: "#", active: false },
+  { label: "오답노트", icon: BookOpen, href: "/student/wrong-notes", active: false },
   { label: "내 반", icon: Users, href: "/student/my-class", active: false },
-  { label: "AI튜터", icon: Bot, href: "#", active: false },
+  { label: "AI튜터", icon: Bot, href: "/student/chat", active: false },
 ];
 
 function StudentUploadContent() {
@@ -23,6 +23,7 @@ function StudentUploadContent() {
   const preselectedId = searchParams.get("assignmentId");
 
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [submittedIds, setSubmittedIds] = useState<Set<number>>(new Set());
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -38,9 +39,16 @@ function StudentUploadContent() {
         const list = await getAssignments(classrooms[0].classId);
         const submittable = list.filter((a) => a.status === "PUBLISHED");
         setAssignments(submittable);
+        const userName = localStorage.getItem("userName") ?? "";
+        const submitted = new Set<number>(
+          submittable
+            .filter((a) => localStorage.getItem(`submission_${userName}_${a.assignmentId}`))
+            .map((a) => a.assignmentId)
+        );
+        setSubmittedIds(submitted);
         const initial = preselectedId
           ? Number(preselectedId)
-          : submittable[0]?.assignmentId ?? null;
+          : submittable.find((a) => !submitted.has(a.assignmentId))?.assignmentId ?? submittable[0]?.assignmentId ?? null;
         setSelectedId(initial);
       } catch (e) {
         console.error(e);
@@ -165,26 +173,38 @@ function StudentUploadContent() {
 
             {dropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-[0px_4px_12px_0px_rgba(0,0,0,0.1)] z-10 overflow-hidden">
-                {assignments.map((opt) => (
-                  <button
-                    key={opt.assignmentId}
-                    onClick={() => { setSelectedId(opt.assignmentId); setDropdownOpen(false); }}
-                    className={cn(
-                      "w-full px-4 py-3 flex flex-col gap-[2px] text-left active:opacity-70",
-                      opt.assignmentId === selectedId ? "bg-[#F0FDF4]" : "bg-white"
-                    )}
-                  >
-                    <span className={cn(
-                      "text-[14px] font-semibold leading-[21px] tracking-tight",
-                      opt.assignmentId === selectedId ? "text-[#10B981]" : "text-[#111827]"
-                    )}>
-                      {opt.title}
-                    </span>
-                    <span className="text-[12px] text-[#9CA3AF] leading-[18px]">
-                      {opt.dueDate ? `마감: ${opt.dueDate.slice(0, 10)}` : "마감일 없음"}
-                    </span>
-                  </button>
-                ))}
+                {assignments.map((opt) => {
+                  const isSubmitted = submittedIds.has(opt.assignmentId);
+                  return (
+                    <button
+                      key={opt.assignmentId}
+                      onClick={() => { if (!isSubmitted) { setSelectedId(opt.assignmentId); setDropdownOpen(false); } }}
+                      disabled={isSubmitted}
+                      className={cn(
+                        "w-full px-4 py-3 flex flex-col gap-[2px] text-left",
+                        isSubmitted ? "bg-white opacity-50 cursor-not-allowed" : "active:opacity-70",
+                        opt.assignmentId === selectedId ? "bg-[#F0FDF4]" : "bg-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[14px] font-semibold leading-[21px] tracking-tight",
+                          opt.assignmentId === selectedId ? "text-[#10B981]" : "text-[#111827]"
+                        )}>
+                          {opt.title}
+                        </span>
+                        {isSubmitted && (
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#3B82F6]">
+                            제출 완료
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[12px] text-[#9CA3AF] leading-[18px]">
+                        {opt.dueDate ? `마감: ${opt.dueDate.slice(0, 10)}` : "마감일 없음"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -250,14 +270,17 @@ function StudentUploadContent() {
           {error && (
             <p className="text-[13px] text-[#EF4444] text-center">{error}</p>
           )}
+          {selectedId && submittedIds.has(selectedId) && (
+            <p className="text-[13px] text-[#F59E0B] text-center">이미 제출한 과제입니다.</p>
+          )}
 
           {/* Upload Button */}
           <button
             onClick={handleUpload}
-            disabled={files.length === 0 || !selectedId || uploading}
+            disabled={files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))}
             className={cn(
               "w-full rounded-xl py-4 flex items-center justify-center active:opacity-80",
-              files.length === 0 || !selectedId || uploading
+              files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))
                 ? "bg-[#D1D5DB]"
                 : "bg-[#10B981]"
             )}

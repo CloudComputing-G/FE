@@ -7,6 +7,7 @@ export interface AuthResponse {
   data: {
     accessToken: string;
     refreshToken: string;
+    username?: string;
   };
   fieldErrors: {
     field: string;

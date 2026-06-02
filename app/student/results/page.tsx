@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ChevronLeft, MessageCircle, BookOpen, Shuffle,
+  ChevronLeft, BookOpen,
   CheckCircle2, AlertCircle, MinusCircle,
   BarChart2, Upload, Users, Bot, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -33,9 +33,9 @@ function gradingResultToStatus(r: QuestionResult["result"]): ProblemStatus {
 const tabs = [
   { label: "결과",    icon: BarChart2, href: "/student/results",   active: true },
   { label: "업로드",  icon: Upload,    href: "/student/upload",    active: false },
-  { label: "오답노트", icon: BookOpen,  href: "#",                  active: false },
+  { label: "오답노트", icon: BookOpen,  href: "/student/wrong-notes", active: false },
   { label: "내 반",   icon: Users,     href: "/student/my-class",  active: false },
-  { label: "AI튜터",  icon: Bot,       href: "#",                  active: false },
+  { label: "AI튜터",  icon: Bot,       href: "/student/chat",      active: false },
 ];
 
 interface SubmittedAssignment {
@@ -207,22 +207,6 @@ function StudentResultsContent() {
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-                <MessageCircle className="w-4 h-4 text-[#10B981]" />
-                <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">AI 질문하기</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-                <BookOpen className="w-4 h-4 text-[#10B981]" />
-                <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">오답노트</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-                <Shuffle className="w-4 h-4 text-[#10B981]" />
-                <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">유사문제</span>
-              </button>
-            </div>
-
             {/* Problem list */}
             <div className="flex flex-col gap-3">
               <h2 className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
@@ -264,14 +248,19 @@ function StudentResultsContent() {
 
       {/* TabBar */}
       <div className="flex items-center justify-between bg-white px-[15px] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-[#F3F4F6]">
-        {tabs.map(({ label, icon: Icon, href, active }) => (
-          <Link key={label} href={href} className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70" aria-label={label}>
-            <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
-            <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
-              {label}
-            </span>
-          </Link>
-        ))}
+        {tabs.map(({ label, icon: Icon, href, active }) => {
+          const resolvedHref = label === "오답노트" && selectedSubmissionId
+            ? `/student/wrong-notes?submissionId=${selectedSubmissionId}`
+            : href;
+          return (
+            <Link key={label} href={resolvedHref} className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70" aria-label={label}>
+              <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
+              <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
+                {label}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

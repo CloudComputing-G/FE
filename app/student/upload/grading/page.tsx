@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Scissors, CheckCircle2, Circle, RefreshCw, BarChart2, Upload, BookOpen, Users, Bot } from "lucide-react";
+import { Scissors, CheckCircle2, Circle, BarChart2, Upload, BookOpen, Users, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradingStatus, getSubmissionResults } from "@/lib/api/submissions";
 import type { QuestionResult } from "@/lib/api/types";
@@ -11,9 +11,9 @@ import type { QuestionResult } from "@/lib/api/types";
 const tabs = [
   { label: "결과", icon: BarChart2, href: "/student/results", active: false },
   { label: "업로드", icon: Upload, href: "/student/upload", active: true },
-  { label: "오답노트", icon: BookOpen, href: "#", active: false },
+  { label: "오답노트", icon: BookOpen, href: "/student/wrong-notes", active: false },
   { label: "내 반", icon: Users, href: "/student/my-class", active: false },
-  { label: "AI튜터", icon: Bot, href: "#", active: false },
+  { label: "AI튜터", icon: Bot, href: "/student/chat", active: false },
 ];
 
 function GradingContent() {
@@ -91,22 +91,13 @@ function GradingContent() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6 flex flex-col gap-6">
         {/* Heading */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-[24px] font-bold text-[#111827] leading-[36px] tracking-wide">
-              {gradingDone && !failed ? "채점 완료!" : "AI 채점 중"}
-            </h1>
-            <p className="text-[14px] text-[#6B7280] leading-[21px] tracking-tight">
-              {gradingDone && !failed ? "잠시 후 결과 페이지로 이동합니다" : "잠시만 기다려주세요"}
-            </p>
-          </div>
-          <Link
-            href={`/student/results?submissionId=${submissionId}`}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#F3F4F6] active:opacity-70"
-          >
-            <RefreshCw className="w-4 h-4 text-[#6B7280]" />
-            <span className="text-[13px] font-medium text-[#6B7280] leading-[19.5px]">결과 보기</span>
-          </Link>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-[24px] font-bold text-[#111827] leading-[36px] tracking-wide">
+            {gradingDone && !failed ? "채점 완료!" : "AI 채점 중"}
+          </h1>
+          <p className="text-[14px] text-[#6B7280] leading-[21px] tracking-tight">
+            {gradingDone && !failed ? "잠시 후 결과 페이지로 이동합니다" : "잠시만 기다려주세요"}
+          </p>
         </div>
 
         {/* Upload complete + assignment info card */}
