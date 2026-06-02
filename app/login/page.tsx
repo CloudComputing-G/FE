@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { login } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,14 +18,33 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 300));
+    try {
+      const res = await login({ email: id, password });
 
-    if (id === "teacher" && password === "teacher123") {
-      router.push("/teacher");
-    } else if (id === "student" && password === "student123") {
-      router.push("/student/my-class");
-    } else {
-      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+      if (!res.success) {
+        const msg =
+          res.fieldErrors?.[0]?.reason ?? res.message ?? "로그인에 실패했습니다.";
+        setError(msg);
+        return;
+      }
+
+      localStorage.setItem("accessToken", res.data.accessToken);
+      localStorage.setItem("refreshToken", res.data.refreshToken);
+      if (res.data.username) localStorage.setItem("userName", res.data.username);
+
+      if (id.includes("teacher")) {
+        router.push("/teacher");
+      } else {
+        router.push("/student/my-class");
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string; fieldErrors?: { reason: string }[] } } };
+      const serverMsg =
+        axiosErr.response?.data?.fieldErrors?.[0]?.reason ??
+        axiosErr.response?.data?.message ??
+        "서버와 연결할 수 없습니다. 잠시 후 다시 시도해주세요.";
+      setError(serverMsg);
+    } finally {
       setLoading(false);
     }
   };
@@ -50,7 +70,9 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
           {/* 아이디 */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[14px] font-medium text-[#374151]">아이디</label>
+            <label className="text-[14px] font-medium text-[#374151]">
+              아이디
+            </label>
             <input
               type="text"
               placeholder="아이디를 입력하세요"
@@ -59,7 +81,7 @@ export default function LoginPage() {
               className={cn(
                 "h-12 w-full rounded-xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#111827] placeholder:text-[#9CA3AF]",
                 "outline-none focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20",
-                "transition-colors"
+                "transition-colors",
               )}
               autoComplete="username"
             />
@@ -67,7 +89,9 @@ export default function LoginPage() {
 
           {/* 비밀번호 */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[14px] font-medium text-[#374151]">비밀번호</label>
+            <label className="text-[14px] font-medium text-[#374151]">
+              비밀번호
+            </label>
             <input
               type="password"
               placeholder="비밀번호를 입력하세요"
@@ -76,7 +100,7 @@ export default function LoginPage() {
               className={cn(
                 "h-12 w-full rounded-xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#111827] placeholder:text-[#9CA3AF]",
                 "outline-none focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20",
-                "transition-colors"
+                "transition-colors",
               )}
               autoComplete="current-password"
             />
@@ -84,7 +108,9 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <p className="text-[13px] text-[#EF4444] leading-[19.5px] -mt-1">{error}</p>
+            <p className="text-[13px] text-[#EF4444] leading-[19.5px] -mt-1">
+              {error}
+            </p>
           )}
 
           {/* Login Button */}
@@ -94,7 +120,7 @@ export default function LoginPage() {
             className={cn(
               "mt-2 h-12 w-full rounded-xl bg-[#10B981] text-white text-[16px] font-semibold",
               "active:opacity-80 transition-opacity",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
             {loading ? "로그인 중..." : "로그인"}
@@ -103,15 +129,21 @@ export default function LoginPage() {
 
         {/* Test Accounts */}
         <div className="mt-8 w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-4">
-          <p className="text-center text-[13px] font-semibold text-[#374151] mb-3">테스트 계정</p>
+          <p className="text-center text-[13px] font-semibold text-[#374151] mb-3">
+            테스트 계정
+          </p>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[13px] text-[#6B7280]">교사:</span>
-              <span className="text-[13px] text-[#374151] font-medium">teacher / teacher123</span>
+              <span className="text-[13px] text-[#374151] font-medium">
+                teacher@gmail.com / teacher123
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] text-[#6B7280]">학생:</span>
-              <span className="text-[13px] text-[#374151] font-medium">student / student123</span>
+              <span className="text-[13px] text-[#374151] font-medium">
+                student@gmail.com / student123
+              </span>
             </div>
           </div>
         </div>

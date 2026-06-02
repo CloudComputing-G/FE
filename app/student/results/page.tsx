@@ -1,62 +1,105 @@
 "use client";
 
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, MessageCircle, BookOpen, Shuffle, CheckCircle2, AlertCircle, MinusCircle, BarChart2, Upload, Users, Bot } from "lucide-react";
+import {
+  ChevronLeft, BookOpen,
+  CheckCircle2, AlertCircle, MinusCircle,
+  BarChart2, Upload, Users, Bot, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSubmissionResults } from "@/lib/api/submissions";
+import { getAssignments } from "@/lib/api/assignments";
+import { getMyClassrooms } from "@/lib/api/classrooms";
+import type { SubmissionResultResponse, QuestionResult } from "@/lib/api/types";
 
 type ProblemStatus = "correct" | "partial" | "wrong";
 
-const problems: {
-  number: number;
-  label: string;
-  score: string;
-  status: ProblemStatus;
-}[] = [
-  { number: 1, label: "1번 문제", score: "15/15점", status: "correct" },
-  { number: 2, label: "2번 문제", score: "12/15점", status: "partial" },
-  { number: 3, label: "3번 문제", score: "0/15점",  status: "wrong"   },
-  { number: 4, label: "4번 문제", score: "15/15점", status: "correct" },
-  { number: 5, label: "5번 문제", score: "15/15점", status: "correct" },
-  { number: 6, label: "6번 문제", score: "15/15점", status: "correct" },
-  { number: 7, label: "7번 문제", score: "15/15점", status: "correct" },
-];
-
-const statusConfig: Record<
-  ProblemStatus,
-  { badge: string; text: string; icon: typeof CheckCircle2; iconColor: string; label: string }
-> = {
-  correct: {
-    badge: "bg-[#D1FAE5]",
-    text: "text-[#10B981]",
-    icon: CheckCircle2,
-    iconColor: "text-[#10B981]",
-    label: "정답",
-  },
-  partial: {
-    badge: "bg-[#FEF3C7]",
-    text: "text-[#F59E0B]",
-    icon: MinusCircle,
-    iconColor: "text-[#F59E0B]",
-    label: "부분점수",
-  },
-  wrong: {
-    badge: "bg-[#FEE2E2]",
-    text: "text-[#EF4444]",
-    icon: AlertCircle,
-    iconColor: "text-[#EF4444]",
-    label: "오답",
-  },
+const statusConfig: Record<ProblemStatus, {
+  badge: string; text: string; icon: typeof CheckCircle2; iconColor: string; label: string;
+}> = {
+  correct: { badge: "bg-[#D1FAE5]", text: "text-[#10B981]", icon: CheckCircle2, iconColor: "text-[#10B981]", label: "정답" },
+  partial: { badge: "bg-[#FEF3C7]", text: "text-[#F59E0B]", icon: MinusCircle,  iconColor: "text-[#F59E0B]", label: "부분점수" },
+  wrong:   { badge: "bg-[#FEE2E2]", text: "text-[#EF4444]", icon: AlertCircle,  iconColor: "text-[#EF4444]", label: "오답" },
 };
 
+function gradingResultToStatus(r: QuestionResult["result"]): ProblemStatus {
+  if (r === "CORRECT") return "correct";
+  if (r === "PARTIAL") return "partial";
+  return "wrong";
+}
+
 const tabs = [
-  { label: "결과", icon: BarChart2, href: "/student/results", active: true },
-  { label: "업로드", icon: Upload, href: "/student/upload", active: false },
-  { label: "오답노트", icon: BookOpen, href: "#", active: false },
-  { label: "내 반", icon: Users, href: "/student/my-class", active: false },
-  { label: "AI튜터", icon: Bot, href: "#", active: false },
+  { label: "결과",    icon: BarChart2, href: "/student/results",   active: true },
+  { label: "업로드",  icon: Upload,    href: "/student/upload",    active: false },
+  { label: "오답노트", icon: BookOpen,  href: "/student/wrong-notes", active: false },
+  { label: "내 반",   icon: Users,     href: "/student/my-class",  active: false },
+  { label: "AI튜터",  icon: Bot,       href: "/student/chat",      active: false },
 ];
 
-export default function StudentResultsPage() {
+interface SubmittedAssignment {
+  assignmentId: number;
+  title: string;
+  submissionId: number;
+}
+
+function StudentResultsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const submissionIdParam = Number(searchParams.get("submissionId"));
+
+  const [submittedAssignments, setSubmittedAssignments] = useState<SubmittedAssignment[]>([]);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number>(submissionIdParam);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [result, setResult] = useState<SubmissionResultResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // localStorage에 저장된 제출 과제 목록 로드
+  useEffect(() => {
+    (async () => {
+      try {
+        const classrooms = await getMyClassrooms();
+        if (classrooms.length === 0) return;
+        const assignments = await getAssignments(classrooms[0].classId);
+        const userName = localStorage.getItem("userName") ?? "";
+        const submitted: SubmittedAssignment[] = [];
+        for (const a of assignments) {
+          const sid = localStorage.getItem(`submission_${userName}_${a.assignmentId}`);
+          if (sid) {
+            submitted.push({ assignmentId: a.assignmentId, title: a.title, submissionId: Number(sid) });
+          }
+        }
+        setSubmittedAssignments(submitted);
+        // URL에 submissionId가 없으면 첫 번째 제출 과제 선택
+        if (!submissionIdParam && submitted.length > 0) {
+          setSelectedSubmissionId(submitted[0].submissionId);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [submissionIdParam]);
+
+  // 선택된 submissionId로 결과 fetch
+  useEffect(() => {
+    if (!selectedSubmissionId) { setLoading(false); return; }
+    setLoading(true);
+    setResult(null);
+    getSubmissionResults(selectedSubmissionId)
+      .then(setResult)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [selectedSubmissionId]);
+
+  function handleSelectAssignment(item: SubmittedAssignment) {
+    setDropdownOpen(false);
+    setSelectedSubmissionId(item.submissionId);
+    router.replace(`/student/results?submissionId=${item.submissionId}`);
+  }
+
+  const selectedAssignment = submittedAssignments.find((a) => a.submissionId === selectedSubmissionId);
+
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-white mx-auto">
       {/* StatusBar */}
@@ -74,11 +117,11 @@ export default function StudentResultsPage() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6 flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6 flex flex-col gap-4">
 
-        {/* Page header: back + title */}
+        {/* Page header */}
         <div className="flex items-center gap-3">
-          <Link href="/student/my-class/graded" aria-label="뒤로가기" className="active:opacity-70">
+          <Link href="/student/my-class" aria-label="뒤로가기" className="active:opacity-70">
             <ChevronLeft className="w-6 h-6 text-[#111827]" />
           </Link>
           <h1 className="text-[20px] font-bold text-[#111827] leading-[30px] tracking-tight">
@@ -86,125 +129,147 @@ export default function StudentResultsPage() {
           </h1>
         </div>
 
-        {/* Score card — gradient green */}
-        <div className="rounded-xl px-4 pt-2 pb-4 bg-gradient-to-br from-[#10B981] to-[#059669] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
-          <p className="text-[36px] font-bold text-white leading-[54px] tracking-wide text-center mt-2">
-            87/105점
-          </p>
-          <p className="text-[14px] text-white/90 leading-[21px] tracking-tight text-center">
-            정답률 83%
-          </p>
-        </div>
-
-        {/* Summary stat cards */}
-        <div className="flex gap-2">
-          {/* 정답 */}
-          <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
-            <p className="text-[24px] font-bold text-[#10B981] leading-[36px]">5</p>
-            <p className="text-[12px] text-[#6B7280] leading-[18px]">정답</p>
-          </div>
-          {/* 부분점수 */}
-          <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
-            <p className="text-[24px] font-bold text-[#F59E0B] leading-[36px]">1</p>
-            <p className="text-[12px] text-[#6B7280] leading-[18px]">부분점수</p>
-          </div>
-          {/* 오답 */}
-          <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
-            <p className="text-[24px] font-bold text-[#EF4444] leading-[36px]">1</p>
-            <p className="text-[12px] text-[#6B7280] leading-[18px]">오답</p>
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-            <MessageCircle className="w-4 h-4 text-[#10B981]" />
-            <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">
-              AI 질문하기
-            </span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-            <BookOpen className="w-4 h-4 text-[#10B981]" />
-            <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">
-              오답노트
-            </span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-[8px] rounded-full bg-[#F0FDF4] active:opacity-70">
-            <Shuffle className="w-4 h-4 text-[#10B981]" />
-            <span className="text-[13px] font-medium text-[#10B981] leading-[19.5px] tracking-tight whitespace-nowrap">
-              유사문제
-            </span>
-          </button>
-        </div>
-
-        {/* Problem list section */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
-            문항별 결과
-          </h2>
-          <div className="flex flex-col gap-2">
-            {problems.map((problem) => {
-              const cfg = statusConfig[problem.status];
-              const Icon = cfg.icon;
-              return (
-                <Link
-                  key={problem.number}
-                  href={`/student/results/${problem.number}`}
-                  className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 py-4 active:opacity-70"
-                >
-                  <div className="flex items-center">
-                    {/* Status icon */}
-                    <Icon className={cn("w-5 h-5 flex-shrink-0", cfg.iconColor)} />
-                    {/* Problem name + score */}
-                    <div className="ml-3 flex flex-col gap-[2px] flex-1 min-w-0">
-                      <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
-                        {problem.label}
-                      </span>
-                      <span className="text-[13px] text-[#6B7280] leading-[19.5px] tracking-tight">
-                        {problem.score}
-                      </span>
-                    </div>
-                    {/* Status badge */}
-                    <span
-                      className={cn(
-                        "ml-2 text-[12px] font-medium leading-[18px] px-3 py-1 rounded-full flex-shrink-0",
-                        cfg.badge,
-                        cfg.text
-                      )}
-                    >
-                      {cfg.label}
+        {/* 과제 선택 드롭다운 */}
+        {submittedAssignments.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen((o) => !o)}
+              className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 flex items-center justify-between active:opacity-70 border border-[#E5E7EB]"
+            >
+              <span className="text-[14px] font-semibold text-[#111827] leading-[21px] truncate pr-2">
+                {selectedAssignment?.title ?? "과제 선택"}
+              </span>
+              {dropdownOpen
+                ? <ChevronUp className="w-5 h-5 text-[#9CA3AF] flex-shrink-0" />
+                : <ChevronDown className="w-5 h-5 text-[#9CA3AF] flex-shrink-0" />
+              }
+            </button>
+            {dropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-[0px_4px_12px_0px_rgba(0,0,0,0.12)] z-10 overflow-hidden border border-[#E5E7EB]">
+                {submittedAssignments.map((item) => (
+                  <button
+                    key={item.assignmentId}
+                    onClick={() => handleSelectAssignment(item)}
+                    className={cn(
+                      "w-full px-4 py-3 text-left active:opacity-70",
+                      item.submissionId === selectedSubmissionId ? "bg-[#F0FDF4]" : "bg-white"
+                    )}
+                  >
+                    <span className={cn(
+                      "text-[14px] font-medium leading-[21px]",
+                      item.submissionId === selectedSubmissionId ? "text-[#10B981]" : "text-[#111827]"
+                    )}>
+                      {item.title}
                     </span>
-                  </div>
-                </Link>
-              );
-            })}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {loading ? (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl h-24 bg-[#F3F4F6] animate-pulse" />
+            <div className="flex gap-2">
+              {[1,2,3].map(i => <div key={i} className="flex-1 h-20 rounded-xl bg-[#F3F4F6] animate-pulse" />)}
+            </div>
+          </div>
+        ) : !selectedSubmissionId ? (
+          <p className="text-[14px] text-[#6B7280] text-center py-16">제출한 과제가 없습니다.</p>
+        ) : !result ? (
+          <p className="text-[14px] text-[#6B7280] text-center py-16">아직 채점이 완료되지 않았습니다.</p>
+        ) : (
+          <>
+            {/* Score card */}
+            <div className="rounded-xl px-4 pt-2 pb-4 bg-gradient-to-br from-[#10B981] to-[#059669] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
+              <p className="text-[36px] font-bold text-white leading-[54px] tracking-wide text-center mt-2">
+                {result.totalScore}/{result.maxScore}점
+              </p>
+              <p className="text-[14px] text-white/90 leading-[21px] tracking-tight text-center">
+                정답률 {result.correctRate}%
+              </p>
+            </div>
+
+            {/* Summary stat cards */}
+            <div className="flex gap-2">
+              <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
+                <p className="text-[24px] font-bold text-[#10B981] leading-[36px]">{result.summary.correct}</p>
+                <p className="text-[12px] text-[#6B7280] leading-[18px]">정답</p>
+              </div>
+              <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
+                <p className="text-[24px] font-bold text-[#F59E0B] leading-[36px]">{result.summary.partial}</p>
+                <p className="text-[12px] text-[#6B7280] leading-[18px]">부분점수</p>
+              </div>
+              <div className="flex-1 bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 pt-4 pb-4 flex flex-col gap-1 items-center">
+                <p className="text-[24px] font-bold text-[#EF4444] leading-[36px]">{result.summary.wrong}</p>
+                <p className="text-[12px] text-[#6B7280] leading-[18px]">오답</p>
+              </div>
+            </div>
+
+            {/* Problem list */}
+            <div className="flex flex-col gap-3">
+              <h2 className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
+                문항별 결과
+              </h2>
+              <div className="flex flex-col gap-2">
+                {result.questions.map((q, idx) => {
+                  const status = gradingResultToStatus(q.result);
+                  const cfg = statusConfig[status];
+                  const Icon = cfg.icon;
+                  return (
+                    <Link
+                      key={q.questionId}
+                      href={`/student/results/${q.questionId}?submissionId=${selectedSubmissionId}`}
+                      className="bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)] px-4 py-4 active:opacity-70"
+                    >
+                      <div className="flex items-center">
+                        <Icon className={cn("w-5 h-5 flex-shrink-0", cfg.iconColor)} />
+                        <div className="ml-3 flex flex-col gap-[2px] flex-1 min-w-0">
+                          <span className="text-[15px] font-semibold text-[#111827] leading-[22.5px] tracking-tight">
+                            {idx + 1}번 문제
+                          </span>
+                          <span className="text-[13px] text-[#6B7280] leading-[19.5px] tracking-tight">
+                            {q.score}/{q.maxScore}점
+                          </span>
+                        </div>
+                        <span className={cn("ml-2 text-[12px] font-medium leading-[18px] px-3 py-1 rounded-full flex-shrink-0", cfg.badge, cfg.text)}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* TabBar */}
       <div className="flex items-center justify-between bg-white px-[15px] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-[#F3F4F6]">
-        {tabs.map(({ label, icon: Icon, href, active }) => (
-          <Link
-            key={label}
-            href={href}
-            className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70"
-            aria-label={label}
-          >
-            <Icon
-              className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")}
-            />
-            <span
-              className={cn(
-                "text-[11px] leading-[16.5px] tracking-wide",
-                active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]"
-              )}
-            >
-              {label}
-            </span>
-          </Link>
-        ))}
+        {tabs.map(({ label, icon: Icon, href, active }) => {
+          const resolvedHref = label === "오답노트" && selectedSubmissionId
+            ? `/student/wrong-notes?submissionId=${selectedSubmissionId}`
+            : href;
+          return (
+            <Link key={label} href={resolvedHref} className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70" aria-label={label}>
+              <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
+              <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
+                {label}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+export default function StudentResultsPage() {
+  return (
+    <Suspense>
+      <StudentResultsContent />
+    </Suspense>
   );
 }
