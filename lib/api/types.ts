@@ -179,6 +179,36 @@ export interface AddStudentsRequest {
   studentEmails: string[]
 }
 
+// --- Regrade ---
+export type RegradeStatus = "PENDING" | "APPROVED" | "REJECTED"
+
+export interface RegradeRequest {
+  regradeRequestId: number
+  submissionId: number
+  studentId: number
+  studentName: string
+  questionId: number
+  questionOrderNum: number
+  questionContent: string | null
+  currentScore: number
+  maxScore: number
+  imageUrl: string | null
+  requestedAt: string
+  status: RegradeStatus
+}
+
+export interface RegradeConfirmRequest {
+  score: number
+}
+
+export interface RegradeConfirmResponse {
+  questionId: number
+  score: number
+  result: string
+  regradeStatus: string
+  totalScore: number
+}
+
 // --- Analytics ---
 export interface AssignmentAnalyticsResponse {
   analyticsId: number
