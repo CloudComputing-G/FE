@@ -9,7 +9,7 @@ import {
 import { useParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
-import { getAssignment, updateQuestion } from "@/lib/api/assignments"
+import { getAssignment, updateQuestion, getLeaderboard } from "@/lib/api/assignments"
 import { getAssignmentAnalytics } from "@/lib/api/analytics"
 import { getClassroom } from "@/lib/api/classrooms"
 import { getRegradeRequests, confirmRegrade } from "@/lib/api/submissions"
@@ -18,6 +18,7 @@ import type {
   AssignmentAnalyticsResponse,
   QuestionResponse,
   RegradeRequest,
+  RankingItem,
 } from "@/lib/api/types"
 
 type TabType = "all" | "graded" | "not-submitted"
@@ -150,7 +151,7 @@ function RegradeRow({
       <tr className="border-b border-gray-100 last:border-0 bg-green-50/40">
         <td colSpan={6} className="px-6 py-4 text-center text-sm text-green-600 font-medium">
           <CheckCircle2 className="inline h-4 w-4 mr-1.5 mb-0.5" />
-          {req.studentName} · {req.questionOrderNum}번 — 점수 확정 ({scoreNum}점)
+          {req.studentName} — 점수 확정 ({scoreNum}점)
         </td>
       </tr>
     )
@@ -168,13 +169,12 @@ function RegradeRow({
             <span className="text-sm font-medium text-gray-900">{req.studentName}</span>
           </div>
         </td>
-        {/* 문항 */}
+        {/* 문항 내용 */}
         <td className="px-6 py-4 text-sm text-gray-700">
-          <span className="font-medium">{req.questionOrderNum}번</span>
-          {req.questionContent && (
-            <span className="ml-2 text-gray-400 text-xs truncate max-w-[180px] inline-block align-middle">
-              {req.questionContent}
-            </span>
+          {req.questionContent ? (
+            <span className="truncate max-w-[200px] inline-block align-middle">{req.questionContent}</span>
+          ) : (
+            <span className="text-gray-300">—</span>
           )}
         </td>
         {/* AI 채점 점수 */}
@@ -196,9 +196,9 @@ function RegradeRow({
             <span className="text-xs text-gray-300">없음</span>
           )}
         </td>
-        {/* 요청 시각 */}
+        {/* 제출 시각 */}
         <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">
-          {new Date(req.requestedAt).toLocaleString("ko-KR", {
+          {new Date(req.submittedAt).toLocaleString("ko-KR", {
             month: "2-digit",
             day: "2-digit",
             hour: "2-digit",
@@ -252,7 +252,7 @@ function RegradeRow({
               >
                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                   <span className="text-sm font-medium text-gray-900">
-                    {req.studentName} · {req.questionOrderNum}번 풀이
+                    {req.studentName} 풀이
                   </span>
                   <button
                     onClick={() => setImgOpen(false)}
@@ -320,11 +320,21 @@ export default function AssignmentPage() {
     refetchInterval: 30000,
   })
 
+  const {
+    data: leaderboardData,
+  } = useQuery({
+    queryKey: ["leaderboard", assignmentId],
+    queryFn: () => getLeaderboard(assignmentId),
+    enabled: !!assignmentId,
+    refetchInterval: 15000,
+  })
+
   const assignment = assignmentData?.data
   const analytics: AssignmentAnalyticsResponse[] = analyticsData?.data ?? []
   const questions: QuestionResponse[] = assignment?.questions ?? []
   const regradeRequests: RegradeRequest[] = Array.isArray(regradeData) ? regradeData : []
-  const pendingRequests = regradeRequests.filter((r) => r.status === "PENDING")
+  const pendingCount = regradeRequests.length
+  const rankings: RankingItem[] = leaderboardData?.data?.rankings ?? []
 
   const studentSummaries = useMemo<StudentSummary[]>(() => {
     const map = new Map<number, { name: string; entries: AssignmentAnalyticsResponse[] }>()
@@ -363,18 +373,21 @@ export default function AssignmentPage() {
       .slice(0, 5)
   }, [analytics])
 
-  const totalCount = assignment?.totalCount ?? 0
-  const submittedCount = assignment?.submittedCount ?? 0
-  const gradedCount = assignment?.gradedCount ?? 0
-  const notSubmittedCount = assignment?.notSubmittedCount ?? 0
+  const totalCount = classroomData?.data?.studentCount ?? assignment?.totalCount ?? 0
+  const submittedCount = rankings.length > 0 ? rankings.length : (assignment?.submittedCount ?? 0)
+  const gradedCount = rankings.length > 0
+    ? rankings.filter((r) => r.gradingStatus === "DONE").length
+    : (assignment?.gradedCount ?? 0)
+  const notSubmittedCount = totalCount > 0 ? totalCount - submittedCount : (assignment?.notSubmittedCount ?? 0)
 
   const filteredStudents = useMemo(() => {
     if (activeTab === "not-submitted") return []
-    return studentSummaries
-  }, [activeTab, studentSummaries])
+    if (activeTab === "graded") return rankings.filter((r) => r.gradingStatus === "DONE")
+    return rankings
+  }, [activeTab, rankings])
 
   const studentTabs: { id: TabType; label: string; count: number }[] = [
-    { id: "all", label: "전체", count: submittedCount || studentSummaries.length },
+    { id: "all", label: "전체", count: submittedCount },
     { id: "graded", label: "채점완료", count: gradedCount },
     { id: "not-submitted", label: "미제출", count: notSubmittedCount },
   ]
@@ -436,14 +449,14 @@ export default function AssignmentPage() {
             >
               <ClipboardList className="h-4 w-4" />
               재채점 요청 관리
-              {pendingRequests.length > 0 && (
+              {pendingCount > 0 && (
                 <span className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-semibold",
                   pageTab === "regrade"
                     ? "bg-green-100 text-green-700"
                     : "bg-red-100 text-red-600"
                 )}>
-                  {pendingRequests.length}
+                  {pendingCount}
                 </span>
               )}
             </button>
@@ -574,26 +587,16 @@ export default function AssignmentPage() {
                       ))}
                     </div>
 
-                    {filteredStudents.length === 0 ? (
+                    {activeTab === "not-submitted" ? (
                       <div className="p-8 text-center text-sm text-gray-400">
-                        {analyticsLoading ? (
+                        미제출 학생 목록은 지원되지 않습니다.
+                      </div>
+                    ) : filteredStudents.length === 0 ? (
+                      <div className="p-8 text-center text-sm text-gray-400">
+                        {assignmentLoading ? (
                           <div className="flex flex-col items-center gap-2">
                             <Loader2 className="h-5 w-5 animate-spin" />
                             <span>불러오는 중...</span>
-                          </div>
-                        ) : analyticsError ? (
-                          <span className="text-red-400">분석 데이터를 불러오지 못했습니다. 잠시 후 자동으로 재시도합니다.</span>
-                        ) : activeTab === "not-submitted" ? (
-                          <span>미제출 학생 목록은 현재 지원되지 않습니다.</span>
-                        ) : gradedCount > 0 ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin text-green-500" />
-                            <span>AI가 채점 결과를 분석 중입니다. 자동으로 업데이트됩니다.</span>
-                          </div>
-                        ) : submittedCount > 0 ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin text-green-500" />
-                            <span>AI가 채점을 진행 중입니다. 자동으로 업데이트됩니다.</span>
                           </div>
                         ) : (
                           <span>아직 제출한 학생이 없습니다.</span>
@@ -603,41 +606,69 @@ export default function AssignmentPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-gray-100 bg-gray-50">
+                            <th className="px-6 py-3 text-left font-medium text-gray-500">순위</th>
                             <th className="px-6 py-3 text-left font-medium text-gray-500">학생</th>
-                            <th className="px-6 py-3 text-left font-medium text-gray-500">주요 취약 유형</th>
-                            <th className="px-6 py-3 text-left font-medium text-gray-500">예측 오류율</th>
+                            <th className="px-6 py-3 text-left font-medium text-gray-500">점수</th>
+                            <th className="px-6 py-3 text-left font-medium text-gray-500">정답률</th>
                             <th className="px-6 py-3 text-left font-medium text-gray-500">상태</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {filteredStudents.map((student) => (
-                            <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-6 py-4">
-                                <Link
-                                  href={`/teacher/classes/${classId}/assignments/${assignmentId}/students/${student.studentId}`}
-                                  className="flex items-center gap-3 group"
-                                >
-                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">
-                                    {getInitials(student.studentName)}
-                                  </div>
-                                  <span className="font-medium text-gray-900 group-hover:text-green-600">
-                                    {student.studentName}
+                          {filteredStudents.map((student) => {
+                            const maxScore = leaderboardData?.data?.maxScore ?? 0
+                            const isDone = student.gradingStatus === "DONE"
+                            return (
+                              <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4 text-sm font-semibold text-gray-500">
+                                  {isDone ? `${student.rank}위` : "—"}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <Link
+                                    href={`/teacher/classes/${classId}/assignments/${assignmentId}/students/${student.studentId}`}
+                                    className="flex items-center gap-3 group"
+                                  >
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">
+                                      {getInitials(student.studentName)}
+                                    </div>
+                                    <span className="font-medium text-gray-900 group-hover:text-green-600">
+                                      {student.studentName}
+                                    </span>
+                                  </Link>
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                  {isDone ? (
+                                    <span className="font-medium text-gray-900">
+                                      {student.totalScore}
+                                      {maxScore > 0 && <span className="text-gray-400">/{maxScore}</span>}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                  {isDone ? (
+                                    <span className="font-medium text-green-600">
+                                      {Math.round(student.correctRate * 100)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "rounded-full px-3 py-1 text-xs font-medium",
+                                    isDone
+                                      ? "bg-green-100 text-green-700"
+                                      : student.gradingStatus === "FAILED"
+                                        ? "bg-red-100 text-red-600"
+                                        : "bg-yellow-100 text-yellow-700"
+                                  )}>
+                                    {isDone ? "채점완료" : student.gradingStatus === "FAILED" ? "채점실패" : "채점중"}
                                   </span>
-                                </Link>
-                              </td>
-                              <td className="px-6 py-4 text-gray-500">{student.topWeakType}</td>
-                              <td className="px-6 py-4">
-                                <span className="font-medium text-red-500">
-                                  {Math.round(student.predictedErrorRate * 100)}%
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={cn("rounded-full px-3 py-1 text-xs font-medium", statusStyles["graded"])}>
-                                  채점완료
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     )}
@@ -658,12 +689,7 @@ export default function AssignmentPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {pendingRequests.length > 0 && (
-                    <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-600">
-                      대기 {pendingRequests.length}건
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-400">전체 {regradeRequests.length}건</span>
+                  <span className="text-xs text-gray-400">대기 {pendingCount}건</span>
                 </div>
               </div>
 
@@ -682,82 +708,26 @@ export default function AssignmentPage() {
                 </div>
               ) : (
                 <>
-                  {/* 탭: PENDING / 전체 */}
-                  <div className="border-b border-gray-100 px-6">
-                    <div className="flex gap-4 text-sm">
-                      {[
-                        { label: "대기 중", items: pendingRequests },
-                        { label: "전체", items: regradeRequests },
-                      ].map(({ label, items }) => (
-                        <span key={label} className="py-3 text-gray-500 text-xs">
-                          {label}: <strong className="text-gray-900">{items.length}건</strong>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
 
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500">
                         <th className="px-6 py-3">학생</th>
-                        <th className="px-6 py-3">문항</th>
+                        <th className="px-6 py-3">문항 내용</th>
                         <th className="px-6 py-3">AI 채점</th>
                         <th className="px-6 py-3">풀이</th>
-                        <th className="px-6 py-3">요청 시각</th>
+                        <th className="px-6 py-3">제출 시각</th>
                         <th className="px-6 py-3">점수 확정</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {/* PENDING 먼저, 나머지 그 다음 */}
-                      {[
-                        ...regradeRequests.filter((r) => r.status === "PENDING"),
-                        ...regradeRequests.filter((r) => r.status !== "PENDING"),
-                      ].map((req) =>
-                        req.status !== "PENDING" ? (
-                          <tr
-                            key={req.regradeRequestId}
-                            className="border-b border-gray-100 last:border-0 opacity-50"
-                          >
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-300 text-xs font-semibold text-white">
-                                  {getInitials(req.studentName)}
-                                </div>
-                                <span className="text-sm text-gray-600">{req.studentName}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-3 text-sm text-gray-600">
-                              {req.questionOrderNum}번
-                            </td>
-                            <td className="px-6 py-3 text-sm text-gray-600">
-                              {req.currentScore} / {req.maxScore}점
-                            </td>
-                            <td className="px-6 py-3" />
-                            <td className="px-6 py-3 text-xs text-gray-400">
-                              {new Date(req.requestedAt).toLocaleString("ko-KR", {
-                                month: "2-digit", day: "2-digit",
-                                hour: "2-digit", minute: "2-digit",
-                              })}
-                            </td>
-                            <td className="px-6 py-3">
-                              <span className={cn(
-                                "rounded-full px-2.5 py-1 text-xs font-medium",
-                                req.status === "APPROVED"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-500"
-                              )}>
-                                {req.status === "APPROVED" ? "확정됨" : "반려됨"}
-                              </span>
-                            </td>
-                          </tr>
-                        ) : (
-                          <RegradeRow
-                            key={req.regradeRequestId}
-                            req={req}
-                            assignmentId={assignmentId}
-                          />
-                        )
-                      )}
+                      {regradeRequests.map((req) => (
+                        <RegradeRow
+                          key={`${req.submissionId}-${req.questionId}`}
+                          req={req}
+                          assignmentId={assignmentId}
+                        />
+                      ))}
                     </tbody>
                   </table>
                 </>

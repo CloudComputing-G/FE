@@ -4,6 +4,7 @@ import type {
   GradingStatusResponse,
   SubmissionResultResponse,
   RegradeRequest,
+  RegradeRequestListResponse,
   RegradeConfirmRequest,
   RegradeConfirmResponse,
 } from "./types";
@@ -37,10 +38,10 @@ export async function requestRegrade(
 export async function getRegradeRequests(
   assignmentId: number
 ): Promise<RegradeRequest[]> {
-  const { data } = await apiClient.get<ApiResponse<RegradeRequest[]>>(
+  const { data } = await apiClient.get<ApiResponse<RegradeRequestListResponse>>(
     `/api/assignments/${assignmentId}/regrade-requests`
   );
-  return data.data;
+  return data.data?.regradeRequests ?? [];
 }
 
 // 교사: 재채점 확인 및 점수 수정

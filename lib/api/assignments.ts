@@ -8,6 +8,7 @@ import type {
   UploadUrlResponse,
   PresignedUrlResponse,
   SubmissionResponse,
+  LeaderboardResponse,
 } from "./types"
 
 export async function getAssignments(classId: number): Promise<ApiResponse<AssignmentResponse[]>> {
@@ -101,6 +102,15 @@ export async function confirmUpload(
     `/api/assignments/${assignmentId}/submissions/${submissionId}/confirm`
   )
   return data.data
+}
+
+export async function getLeaderboard(
+  assignmentId: number
+): Promise<ApiResponse<LeaderboardResponse>> {
+  const res = await apiClient.get<ApiResponse<LeaderboardResponse>>(
+    `/api/assignments/${assignmentId}/leaderboard`
+  )
+  return res.data
 }
 
 export async function updateQuestion(

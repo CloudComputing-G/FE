@@ -67,13 +67,19 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
     }
   }
 
+  const [regradeErrorMsg, setRegradeErrorMsg] = useState("");
+
   async function handleRegrade() {
     if (!submissionId) return;
     setRegradeStatus("submitting");
+    setRegradeErrorMsg("");
     try {
       await requestRegrade(submissionId, questionId);
       setRegradeStatus("done");
-    } catch {
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setRegradeErrorMsg(msg ?? "요청에 실패했습니다. 다시 시도해주세요.");
       setRegradeStatus("error");
     }
   }
@@ -219,7 +225,7 @@ function ProblemDetailContent({ params }: { params: Promise<{ id: string }> }) {
               ) : (
                 <>
                   {regradeStatus === "error" && (
-                    <p className="text-[12px] text-[#EF4444]">요청에 실패했습니다. 다시 시도해주세요.</p>
+                    <p className="text-[12px] text-[#EF4444]">{regradeErrorMsg}</p>
                   )}
                   <button
                     onClick={handleRegrade}

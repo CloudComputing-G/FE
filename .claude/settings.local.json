@@ -37,7 +37,8 @@
       "Bash(xargs grep -l \"Lambda\\\\|grading\")",
       "Bash(xargs grep -l \"invoke\\\\|payload\\\\|eventBridge\\\\|SQS\")",
       "Bash(xargs grep -l \"gradingStatus\\\\|PENDING\\\\|DONE\")",
-      "Bash(xargs cat)"
+      "Bash(xargs cat)",
+      "Bash(git commit *)"
     ]
   }
 }

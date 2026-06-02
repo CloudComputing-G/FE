@@ -180,21 +180,23 @@ export interface AddStudentsRequest {
 }
 
 // --- Regrade ---
-export type RegradeStatus = "PENDING" | "APPROVED" | "REJECTED"
-
 export interface RegradeRequest {
-  regradeRequestId: number
   submissionId: number
+  questionId: number
   studentId: number
   studentName: string
-  questionId: number
-  questionOrderNum: number
   questionContent: string | null
   currentScore: number
   maxScore: number
+  currentResult: string | null
+  reason: string | null
   imageUrl: string | null
-  requestedAt: string
-  status: RegradeStatus
+  submittedAt: string
+}
+
+export interface RegradeRequestListResponse {
+  assignmentId: number
+  regradeRequests: RegradeRequest[]
 }
 
 export interface RegradeConfirmRequest {
@@ -207,6 +209,24 @@ export interface RegradeConfirmResponse {
   result: string
   regradeStatus: string
   totalScore: number
+}
+
+// --- Leaderboard ---
+export interface RankingItem {
+  rank: number
+  studentId: number
+  studentName: string
+  totalScore: number
+  correctRate: number
+  gradingStatus: string
+  submittedAt: string | null
+}
+
+export interface LeaderboardResponse {
+  assignmentId: number
+  assignmentTitle: string
+  maxScore: number
+  rankings: RankingItem[]
 }
 
 // --- Analytics ---
