@@ -2,15 +2,15 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { ChevronRight, Cpu, Loader2 } from "lucide-react"
+import { ChevronRight, Cpu, Loader2, Save, CheckCircle2 } from "lucide-react"
 import { useParams } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
-import { getAssignment } from "@/lib/api/assignments"
+import { getAssignment, updateQuestion } from "@/lib/api/assignments"
 import { getAssignmentAnalytics } from "@/lib/api/analytics"
 import { getClassroom } from "@/lib/api/classrooms"
 import { cn } from "@/lib/utils"
-import type { AssignmentAnalyticsResponse } from "@/lib/api/types"
+import type { AssignmentAnalyticsResponse, QuestionResponse } from "@/lib/api/types"
 
 type TabType = "all" | "graded" | "not-submitted"
 
@@ -30,6 +30,84 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase()
 }
 
+function QuestionCriteriaRow({
+  question,
+  assignmentId,
+}: {
+  question: QuestionResponse
+  assignmentId: number
+}) {
+  const queryClient = useQueryClient()
+  const [answer, setAnswer] = useState(question.answer ?? "")
+  const [criteria, setCriteria] = useState(question.gradingCriteria ?? "")
+  const [saved, setSaved] = useState(false)
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      updateQuestion(assignmentId, question.questionId, {
+        answer,
+        gradingCriteria: criteria || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignment", assignmentId] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    },
+  })
+
+  const isDirty =
+    answer !== (question.answer ?? "") ||
+    criteria !== (question.gradingCriteria ?? "")
+
+  return (
+    <tr className="border-b border-gray-100 last:border-0">
+      <td className="px-4 py-3 text-sm font-medium text-gray-700 w-16 text-center">
+        {question.orderNum}번
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+        {question.content || <span className="text-gray-300">—</span>}
+      </td>
+      <td className="px-4 py-3 w-36">
+        <input
+          value={answer}
+          onChange={(e) => { setAnswer(e.target.value); setSaved(false) }}
+          placeholder="정답 입력"
+          className="h-8 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
+        />
+      </td>
+      <td className="px-4 py-3">
+        <input
+          value={criteria}
+          onChange={(e) => { setCriteria(e.target.value); setSaved(false) }}
+          placeholder="채점 기준 (선택)"
+          className="h-8 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
+        />
+      </td>
+      <td className="px-4 py-3 w-20 text-right">
+        {saved ? (
+          <span className="inline-flex items-center gap-1 text-xs text-green-600">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            저장됨
+          </span>
+        ) : (
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !answer.trim() || !isDirty}
+            className="inline-flex items-center gap-1 rounded-lg bg-green-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-40 transition-colors"
+          >
+            {mutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3" />
+            )}
+            저장
+          </button>
+        )}
+      </td>
+    </tr>
+  )
+}
+
 export default function AssignmentPage() {
   const params = useParams()
   const classId = params.classId as string
@@ -47,18 +125,20 @@ export default function AssignmentPage() {
     queryKey: ["assignment", assignmentId],
     queryFn: () => getAssignment(assignmentId),
     enabled: !!assignmentId,
+    refetchInterval: 15000,
   })
 
-  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
+  const { data: analyticsData, isLoading: analyticsLoading, isError: analyticsError } = useQuery({
     queryKey: ["analytics", assignmentId],
     queryFn: () => getAssignmentAnalytics(assignmentId),
     enabled: !!assignmentId,
+    refetchInterval: 15000,
   })
 
   const assignment = assignmentData?.data
   const analytics: AssignmentAnalyticsResponse[] = analyticsData?.data ?? []
+  const questions: QuestionResponse[] = assignment?.questions ?? []
 
-  // 학생별로 analytics 집계 (취약 문제 유형 추출)
   const studentSummaries = useMemo<StudentSummary[]>(() => {
     const map = new Map<number, { name: string; entries: AssignmentAnalyticsResponse[] }>()
     analytics.forEach((a) => {
@@ -78,7 +158,6 @@ export default function AssignmentPage() {
     })
   }, [analytics])
 
-  // 취약 문제 유형 집계 (questionType별 평균 오류율)
   const weakTopics = useMemo(() => {
     const typeMap = new Map<string, { totalRate: number; count: number }>()
     analytics.forEach((a) => {
@@ -102,8 +181,13 @@ export default function AssignmentPage() {
   const gradedCount = assignment?.gradedCount ?? 0
   const notSubmittedCount = assignment?.notSubmittedCount ?? 0
 
+  const filteredStudents = useMemo(() => {
+    if (activeTab === "not-submitted") return []
+    return studentSummaries
+  }, [activeTab, studentSummaries])
+
   const tabs: { id: TabType; label: string; count: number }[] = [
-    { id: "all", label: "전체", count: studentSummaries.length },
+    { id: "all", label: "전체", count: submittedCount || studentSummaries.length },
     { id: "graded", label: "채점완료", count: gradedCount },
     { id: "not-submitted", label: "미제출", count: notSubmittedCount },
   ]
@@ -158,6 +242,43 @@ export default function AssignmentPage() {
                 ))}
               </div>
 
+              {/* 문항별 채점 기준 */}
+              <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                  <h2 className="text-base font-semibold text-gray-900">문항별 채점 기준</h2>
+                  <span className="text-xs text-gray-400">{questions.length}개 문항</span>
+                </div>
+                {questions.length === 0 ? (
+                  <div className="px-6 py-10 text-center text-sm text-gray-400">
+                    AI가 답지를 분석한 후 문항이 자동으로 생성됩니다.
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500">
+                        <th className="px-4 py-2.5 w-16 text-center">번호</th>
+                        <th className="px-4 py-2.5">문항 내용</th>
+                        <th className="px-4 py-2.5 w-36">정답</th>
+                        <th className="px-4 py-2.5">채점 기준</th>
+                        <th className="px-4 py-2.5 w-20" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questions
+                        .slice()
+                        .sort((a, b) => a.orderNum - b.orderNum)
+                        .map((q) => (
+                          <QuestionCriteriaRow
+                            key={q.questionId}
+                            question={q}
+                            assignmentId={assignmentId}
+                          />
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
               <div className="grid grid-cols-3 gap-6">
                 {/* 취약 문제 예측 */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -169,7 +290,13 @@ export default function AssignmentPage() {
                     </span>
                   </div>
                   {weakTopics.length === 0 ? (
-                    <p className="text-sm text-gray-400">채점 완료 후 분석 결과가 표시됩니다.</p>
+                    <p className="text-sm text-gray-400">
+                      {analyticsError
+                        ? "데이터를 불러오지 못했습니다."
+                        : gradedCount > 0 || submittedCount > 0
+                          ? "AI 분석 중... 자동으로 업데이트됩니다."
+                          : "채점 완료 후 분석 결과가 표시됩니다."}
+                    </p>
                   ) : (
                     <div className="flex flex-col gap-5">
                       {weakTopics.map((topic) => (
@@ -192,7 +319,6 @@ export default function AssignmentPage() {
 
                 {/* 학생 목록 */}
                 <div className="col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm">
-                  {/* 탭 */}
                   <div className="flex items-center gap-1 border-b border-gray-100 px-4 pt-4">
                     {tabs.map((tab) => (
                       <button
@@ -220,9 +346,30 @@ export default function AssignmentPage() {
                     ))}
                   </div>
 
-                  {studentSummaries.length === 0 ? (
+                  {filteredStudents.length === 0 ? (
                     <div className="p-8 text-center text-sm text-gray-400">
-                      아직 채점된 학생이 없습니다.
+                      {analyticsLoading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>불러오는 중...</span>
+                        </div>
+                      ) : analyticsError ? (
+                        <span className="text-red-400">분석 데이터를 불러오지 못했습니다. 잠시 후 자동으로 재시도합니다.</span>
+                      ) : activeTab === "not-submitted" ? (
+                        <span>미제출 학생 목록은 현재 지원되지 않습니다.</span>
+                      ) : gradedCount > 0 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin text-green-500" />
+                          <span>AI가 채점 결과를 분석 중입니다. 자동으로 업데이트됩니다.</span>
+                        </div>
+                      ) : submittedCount > 0 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin text-green-500" />
+                          <span>AI가 채점을 진행 중입니다. 자동으로 업데이트됩니다.</span>
+                        </div>
+                      ) : (
+                        <span>아직 제출한 학생이 없습니다.</span>
+                      )}
                     </div>
                   ) : (
                     <table className="w-full text-sm">
@@ -235,7 +382,7 @@ export default function AssignmentPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {studentSummaries.map((student) => (
+                        {filteredStudents.map((student) => (
                           <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                               <Link
@@ -257,12 +404,7 @@ export default function AssignmentPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <span
-                                className={cn(
-                                  "rounded-full px-3 py-1 text-xs font-medium",
-                                  statusStyles["graded"]
-                                )}
-                              >
+                              <span className={cn("rounded-full px-3 py-1 text-xs font-medium", statusStyles["graded"])}>
                                 채점완료
                               </span>
                             </td>

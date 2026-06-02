@@ -16,7 +16,28 @@
       "Bash(xargs grep -l \"lambda\" -i)",
       "Bash(xargs grep -n \"GetMapping\\\\|PostMapping\\\\|PutMapping\\\\|DeleteMapping\")",
       "Bash(npx tsc *)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)",
+      "Bash(Remove-Item app/teacher/notifications/page.tsx)",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "WebFetch(domain:100.28.160.69)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "mcp__MCP_DOCKER__browser_navigate",
+      "mcp__MCP_DOCKER__browser_take_screenshot",
+      "mcp__MCP_DOCKER__browser_snapshot",
+      "mcp__MCP_DOCKER__browser_fill_form",
+      "mcp__MCP_DOCKER__browser_click",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Read(//tmp/**)",
+      "Read(//tmp/CheckMate/**)",
+      "Bash(xargs grep -l \"Lambda\\\\|grading\")",
+      "Bash(xargs grep -l \"invoke\\\\|payload\\\\|eventBridge\\\\|SQS\")",
+      "Bash(xargs grep -l \"gradingStatus\\\\|PENDING\\\\|DONE\")",
+      "Bash(xargs cat)"
     ]
   }
 }
