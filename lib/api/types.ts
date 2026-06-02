@@ -82,7 +82,7 @@ export interface AssignmentResponse {
 
 export interface QuestionRequest {
   content: string
-  answer: string
+  answer?: string
   gradingCriteria?: string
   maxScore: number
   orderNum: number

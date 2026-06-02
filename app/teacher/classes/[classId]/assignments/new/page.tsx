@@ -125,7 +125,7 @@ export default function NewAssignmentPage() {
         questions: answers.map((answer, i) => ({
           orderNum: i + 1,
           content: `${i + 1}번 문항`,
-          answer,
+          answer: answer.trim() || undefined,
           maxScore: scores[i],
         })),
       })
@@ -146,7 +146,6 @@ export default function NewAssignmentPage() {
   const handleSubmit = (shouldPublish: boolean) => {
     setError("")
     if (!title.trim()) { setError("과제명을 입력해 주세요."); return }
-    if (answers.some((a) => !a.trim())) { setError("모든 문항의 정답을 입력해 주세요."); return }
     setPendingAction(shouldPublish ? "publish" : "draft")
     mutation.mutate(shouldPublish)
   }
@@ -218,7 +217,8 @@ export default function NewAssignmentPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">
-                  정답 입력 <span className="text-red-400">*</span>
+                  정답 입력
+                  <span className="ml-1.5 text-xs font-normal text-gray-400">(선택)</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">문항 수</span>
@@ -248,7 +248,7 @@ export default function NewAssignmentPage() {
                         next[i] = e.target.value
                         setAnswers(next)
                       }}
-                      placeholder="정답"
+                      placeholder="—"
                       className="h-9 w-full rounded-lg border border-gray-200 px-2 text-center text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
                     />
                     <input
