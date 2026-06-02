@@ -3,19 +3,17 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
-  ChevronRight, Cpu, Loader2, CheckCircle2,
+  ChevronRight, Loader2, CheckCircle2,
   ClipboardList, LayoutDashboard, ExternalLink,
 } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
 import { getAssignment, getLeaderboard } from "@/lib/api/assignments"
-import { getAssignmentAnalytics } from "@/lib/api/analytics"
 import { getClassroom } from "@/lib/api/classrooms"
 import { getRegradeRequests, confirmRegrade } from "@/lib/api/submissions"
 import { cn } from "@/lib/utils"
 import type {
-  AssignmentAnalyticsResponse,
   RegradeRequest,
   RankingItem,
 } from "@/lib/api/types"
@@ -209,12 +207,6 @@ export default function AssignmentPage() {
     refetchInterval: 15000,
   })
 
-  const { data: analyticsData, isLoading: analyticsLoading, isError: analyticsError } = useQuery({
-    queryKey: ["analytics", assignmentId],
-    queryFn: () => getAssignmentAnalytics(assignmentId),
-    enabled: !!assignmentId,
-    refetchInterval: 15000,
-  })
 
   const {
     data: regradeData,
@@ -237,28 +229,9 @@ export default function AssignmentPage() {
   })
 
   const assignment = assignmentData?.data
-  const analytics: AssignmentAnalyticsResponse[] = analyticsData?.data ?? []
   const regradeRequests: RegradeRequest[] = Array.isArray(regradeData) ? regradeData : []
   const pendingCount = regradeRequests.length
   const rankings: RankingItem[] = leaderboardData?.data?.rankings ?? []
-
-  const weakTopics = useMemo(() => {
-    const typeMap = new Map<string, { totalRate: number; count: number }>()
-    analytics.forEach((a) => {
-      const existing = typeMap.get(a.questionType) ?? { totalRate: 0, count: 0 }
-      typeMap.set(a.questionType, {
-        totalRate: existing.totalRate + a.predictedErrorRate,
-        count: existing.count + 1,
-      })
-    })
-    return Array.from(typeMap.entries())
-      .map(([name, { totalRate, count }]) => ({
-        name,
-        pct: Math.round((totalRate / count) * 100),
-      }))
-      .sort((a, b) => b.pct - a.pct)
-      .slice(0, 5)
-  }, [analytics])
 
   const totalCount = classroomData?.data?.studentCount ?? assignment?.totalCount ?? 0
   const submittedCount = rankings.length > 0 ? rankings.length : (assignment?.submittedCount ?? 0)
@@ -286,7 +259,7 @@ export default function AssignmentPage() {
     { value: notSubmittedCount, label: "미제출", color: "text-orange-500" },
   ]
 
-  const isLoading = assignmentLoading || analyticsLoading
+  const isLoading = assignmentLoading
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -370,46 +343,8 @@ export default function AssignmentPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-6">
-                  {/* 취약 문제 예측 */}
-                  <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div className="mb-5 flex items-center justify-between">
-                      <h2 className="text-base font-semibold text-gray-900">취약 문제 예측</h2>
-                      <span className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-500">
-                        <Cpu className="h-3 w-3" />
-                        AI 분석
-                      </span>
-                    </div>
-                    {weakTopics.length === 0 ? (
-                      <p className="text-sm text-gray-400">
-                        {analyticsError
-                          ? "데이터를 불러오지 못했습니다."
-                          : gradedCount > 0 || submittedCount > 0
-                            ? "AI 분석 중... 자동으로 업데이트됩니다."
-                            : "채점 완료 후 분석 결과가 표시됩니다."}
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-5">
-                        {weakTopics.map((topic) => (
-                          <div key={topic.name}>
-                            <div className="mb-2 flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-700">{topic.name}</span>
-                              <span className="text-sm font-semibold text-red-500">{topic.pct}%</span>
-                            </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                              <div
-                                className="h-full rounded-full bg-red-400"
-                                style={{ width: `${topic.pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 학생 목록 */}
-                  <div className="col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm">
+                {/* 학생 목록 */}
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
                     <div className="flex items-center gap-1 border-b border-gray-100 px-4 pt-4">
                       {studentTabs.map((tab) => (
                         <button
@@ -524,7 +459,6 @@ export default function AssignmentPage() {
                       </table>
                     )}
                   </div>
-                </div>
               </>
             )
           )}
