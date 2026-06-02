@@ -187,7 +187,7 @@ function StudentResultsContent() {
                 {result.totalScore}/{result.maxScore}점
               </p>
               <p className="text-[14px] text-white/90 leading-[21px] tracking-tight text-center">
-                정답률 {result.correctRate}%
+                정답률 {Math.round(result.correctRate * 100)}%
               </p>
             </div>
 
