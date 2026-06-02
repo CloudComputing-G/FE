@@ -3,20 +3,19 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
-  ChevronRight, Cpu, Loader2, Save, CheckCircle2,
+  ChevronRight, Cpu, Loader2, CheckCircle2,
   ClipboardList, LayoutDashboard, ExternalLink,
 } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
-import { getAssignment, updateQuestion, getLeaderboard } from "@/lib/api/assignments"
+import { getAssignment, getLeaderboard } from "@/lib/api/assignments"
 import { getAssignmentAnalytics } from "@/lib/api/analytics"
 import { getClassroom } from "@/lib/api/classrooms"
 import { getRegradeRequests, confirmRegrade } from "@/lib/api/submissions"
 import { cn } from "@/lib/utils"
 import type {
   AssignmentAnalyticsResponse,
-  QuestionResponse,
   RegradeRequest,
   RankingItem,
 } from "@/lib/api/types"
@@ -24,100 +23,8 @@ import type {
 type TabType = "all" | "graded" | "not-submitted"
 type PageTab = "overview" | "regrade"
 
-interface StudentSummary {
-  studentId: number
-  studentName: string
-  topWeakType: string
-  predictedErrorRate: number
-}
-
-const statusStyles = {
-  graded: "bg-green-100 text-green-700",
-  "not-submitted": "bg-gray-100 text-gray-500",
-} as const
-
 function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase()
-}
-
-// ── 문항 채점기준 행 ─────────────────────────────────────────────────────────
-
-function QuestionCriteriaRow({
-  question,
-  assignmentId,
-}: {
-  question: QuestionResponse
-  assignmentId: number
-}) {
-  const queryClient = useQueryClient()
-  const [answer, setAnswer] = useState(question.answer ?? "")
-  const [criteria, setCriteria] = useState(question.gradingCriteria ?? "")
-  const [saved, setSaved] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      updateQuestion(assignmentId, question.questionId, {
-        answer,
-        gradingCriteria: criteria || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assignment", assignmentId] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    },
-  })
-
-  const isDirty =
-    answer !== (question.answer ?? "") ||
-    criteria !== (question.gradingCriteria ?? "")
-
-  return (
-    <tr className="border-b border-gray-100 last:border-0">
-      <td className="px-4 py-3 text-sm font-medium text-gray-700 w-16 text-center">
-        {question.orderNum}번
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-        {question.content || <span className="text-gray-300">—</span>}
-      </td>
-      <td className="px-4 py-3 w-36">
-        <input
-          value={answer}
-          onChange={(e) => { setAnswer(e.target.value); setSaved(false) }}
-          placeholder="정답 입력"
-          className="h-8 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
-        />
-      </td>
-      <td className="px-4 py-3">
-        <input
-          value={criteria}
-          onChange={(e) => { setCriteria(e.target.value); setSaved(false) }}
-          placeholder="채점 기준 (선택)"
-          className="h-8 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20"
-        />
-      </td>
-      <td className="px-4 py-3 w-20 text-right">
-        {saved ? (
-          <span className="inline-flex items-center gap-1 text-xs text-green-600">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            저장됨
-          </span>
-        ) : (
-          <button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || !answer.trim() || !isDirty}
-            className="inline-flex items-center gap-1 rounded-lg bg-green-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-40 transition-colors"
-          >
-            {mutation.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Save className="h-3 w-3" />
-            )}
-            저장
-          </button>
-        )}
-      </td>
-    </tr>
-  )
 }
 
 // ── 재채점 요청 행 ────────────────────────────────────────────────────────────
@@ -331,29 +238,9 @@ export default function AssignmentPage() {
 
   const assignment = assignmentData?.data
   const analytics: AssignmentAnalyticsResponse[] = analyticsData?.data ?? []
-  const questions: QuestionResponse[] = assignment?.questions ?? []
   const regradeRequests: RegradeRequest[] = Array.isArray(regradeData) ? regradeData : []
   const pendingCount = regradeRequests.length
   const rankings: RankingItem[] = leaderboardData?.data?.rankings ?? []
-
-  const studentSummaries = useMemo<StudentSummary[]>(() => {
-    const map = new Map<number, { name: string; entries: AssignmentAnalyticsResponse[] }>()
-    analytics.forEach((a) => {
-      if (!map.has(a.studentId)) map.set(a.studentId, { name: a.studentName, entries: [] })
-      map.get(a.studentId)!.entries.push(a)
-    })
-    return Array.from(map.entries()).map(([studentId, { name, entries }]) => {
-      const worst = entries.reduce((prev, cur) =>
-        cur.predictedErrorRate > prev.predictedErrorRate ? cur : prev
-      )
-      return {
-        studentId,
-        studentName: name,
-        topWeakType: worst.questionType,
-        predictedErrorRate: worst.predictedErrorRate,
-      }
-    })
-  }, [analytics])
 
   const weakTopics = useMemo(() => {
     const typeMap = new Map<string, { totalRate: number; count: number }>()
@@ -483,43 +370,6 @@ export default function AssignmentPage() {
                   ))}
                 </div>
 
-                {/* 문항별 채점 기준 */}
-                <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                    <h2 className="text-base font-semibold text-gray-900">문항별 채점 기준</h2>
-                    <span className="text-xs text-gray-400">{questions.length}개 문항</span>
-                  </div>
-                  {questions.length === 0 ? (
-                    <div className="px-6 py-10 text-center text-sm text-gray-400">
-                      AI가 답지를 분석한 후 문항이 자동으로 생성됩니다.
-                    </div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500">
-                          <th className="px-4 py-2.5 w-16 text-center">번호</th>
-                          <th className="px-4 py-2.5">문항 내용</th>
-                          <th className="px-4 py-2.5 w-36">정답</th>
-                          <th className="px-4 py-2.5">채점 기준</th>
-                          <th className="px-4 py-2.5 w-20" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {questions
-                          .slice()
-                          .sort((a, b) => a.orderNum - b.orderNum)
-                          .map((q) => (
-                            <QuestionCriteriaRow
-                              key={q.questionId}
-                              question={q}
-                              assignmentId={assignmentId}
-                            />
-                          ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
                 <div className="grid grid-cols-3 gap-6">
                   {/* 취약 문제 예측 */}
                   <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -589,7 +439,8 @@ export default function AssignmentPage() {
 
                     {activeTab === "not-submitted" ? (
                       <div className="p-8 text-center text-sm text-gray-400">
-                        미제출 학생 목록은 지원되지 않습니다.
+                        <p className="font-medium text-gray-500">미제출 학생 {notSubmittedCount}명</p>
+                        <p className="mt-1 text-xs">반 학생 목록 조회 API가 없어 이름을 표시할 수 없습니다.</p>
                       </div>
                     ) : filteredStudents.length === 0 ? (
                       <div className="p-8 text-center text-sm text-gray-400">
