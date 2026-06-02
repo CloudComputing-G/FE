@@ -51,7 +51,7 @@ export default function StudentMyClassPage() {
         if (classrooms.length === 0) { setLoading(false); return; }
         const cls = classrooms[0];
         setClassroom(cls);
-        const list = await getAssignments(cls.classId);
+        const list = (await getAssignments(cls.classId)).data ?? [];
         setAssignments(list);
       } catch (e) {
         console.error(e);

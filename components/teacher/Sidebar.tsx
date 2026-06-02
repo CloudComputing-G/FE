@@ -1,17 +1,26 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { LayoutGrid, Bell, LogOut } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { LayoutGrid, Bell, LogOut, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/teacher", icon: LayoutGrid, label: "반 관리" },
+  { href: "/teacher/students", icon: Users, label: "학생 관리" },
   { href: "/teacher/notifications", icon: Bell, label: "알림" },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken")
+    localStorage.removeItem("refreshToken")
+    localStorage.removeItem("user_role")
+    router.push("/login")
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-60 flex-col border-r border-gray-200 bg-white">
@@ -55,7 +64,7 @@ export function Sidebar() {
               <p className="text-xs text-gray-500">수학 교사</p>
             </div>
           </div>
-          <button aria-label="로그아웃" className="text-gray-400 hover:text-gray-600">
+          <button onClick={handleLogout} aria-label="로그아웃" className="text-gray-400 hover:text-gray-600 transition-colors">
             <LogOut className="h-4 w-4" />
           </button>
         </div>

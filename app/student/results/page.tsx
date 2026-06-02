@@ -61,7 +61,7 @@ function StudentResultsContent() {
       try {
         const classrooms = await getMyClassrooms();
         if (classrooms.length === 0) return;
-        const assignments = await getAssignments(classrooms[0].classId);
+        const assignments = (await getAssignments(classrooms[0].classId)).data ?? [];
         const userName = localStorage.getItem("userName") ?? "";
         const submitted: SubmittedAssignment[] = [];
         for (const a of assignments) {

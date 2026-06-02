@@ -36,7 +36,7 @@ function StudentUploadContent() {
       try {
         const classrooms = await getMyClassrooms();
         if (classrooms.length === 0) return;
-        const list = await getAssignments(classrooms[0].classId);
+        const list = (await getAssignments(classrooms[0].classId)).data ?? [];
         const submittable = list.filter((a) => a.status === "PUBLISHED");
         setAssignments(submittable);
         const userName = localStorage.getItem("userName") ?? "";

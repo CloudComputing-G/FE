@@ -1,34 +1,35 @@
-import apiClient from "./axios";
+import { apiClient } from "./instance"
+import type {
+  ApiResponse,
+  LoginRequest,
+  SignupRequest,
+  TokenResponse,
+  RefreshRequest,
+} from "./types"
 
-export interface AuthResponse {
-  success: boolean;
-  code: string;
-  message: string;
-  data: {
-    accessToken: string;
-    refreshToken: string;
-    username?: string;
-  };
-  fieldErrors: {
-    field: string;
-    rejectedValue: string;
-    reason: string;
-  }[];
+export async function login(data: LoginRequest): Promise<ApiResponse<TokenResponse>> {
+  const res = await apiClient.post<ApiResponse<TokenResponse>>("/api/auth/login", data)
+  return res.data
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
+export async function signup(data: SignupRequest): Promise<ApiResponse<void>> {
+  const res = await apiClient.post<ApiResponse<void>>("/api/auth/signup", data)
+  return res.data
 }
 
-export async function login(body: LoginRequest): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>("/api/auth/login", body);
-  return data;
+export async function refreshToken(data: RefreshRequest): Promise<ApiResponse<TokenResponse>> {
+  const res = await apiClient.post<ApiResponse<TokenResponse>>("/api/auth/refresh", data)
+  return res.data
 }
 
-export async function refreshToken(token: string): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>("/api/auth/refresh", {
-    refreshToken: token,
-  });
-  return data;
+export function saveTokens(tokens: TokenResponse) {
+  localStorage.setItem("accessToken", tokens.accessToken)
+  localStorage.setItem("refreshToken", tokens.refreshToken)
+  localStorage.setItem("userName", tokens.username)
+}
+
+export function clearTokens() {
+  localStorage.removeItem("accessToken")
+  localStorage.removeItem("refreshToken")
+  localStorage.removeItem("userName")
 }
