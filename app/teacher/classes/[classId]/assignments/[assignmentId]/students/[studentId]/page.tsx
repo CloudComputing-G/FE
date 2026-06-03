@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
 import { getAssignment } from "@/lib/api/assignments"
 import { getAssignmentAnalytics } from "@/lib/api/analytics"
+import { getClassroom } from "@/lib/api/classrooms"
 import { cn } from "@/lib/utils"
 import type { AssignmentAnalyticsResponse } from "@/lib/api/types"
 
@@ -39,6 +40,12 @@ export default function StudentResultPage() {
   const classId = params.classId as string
   const assignmentId = Number(params.assignmentId)
   const studentId = Number(params.studentId)
+
+  const { data: classroomData } = useQuery({
+    queryKey: ["classroom", classId],
+    queryFn: () => getClassroom(Number(classId)),
+    enabled: !!classId,
+  })
 
   const { data: assignmentData } = useQuery({
     queryKey: ["assignment", assignmentId],
@@ -86,7 +93,7 @@ export default function StudentResultPage() {
               href={`/teacher/classes/${classId}`}
               className="text-gray-500 hover:text-gray-700"
             >
-              반 {classId}
+              {classroomData?.data?.name ?? `반 ${classId}`}
             </Link>
             <ChevronRight className="h-4 w-4 text-gray-400" />
             <Link

@@ -238,7 +238,7 @@ export default function AssignmentPage() {
   const gradedCount = rankings.length > 0
     ? rankings.filter((r) => r.gradingStatus === "DONE").length
     : (assignment?.gradedCount ?? 0)
-  const notSubmittedCount = totalCount > 0 ? totalCount - submittedCount : (assignment?.notSubmittedCount ?? 0)
+  const notSubmittedCount = totalCount > 0 ? Math.max(0, totalCount - submittedCount) : (assignment?.notSubmittedCount ?? 0)
 
   const filteredStudents = useMemo(() => {
     if (activeTab === "not-submitted") return []
