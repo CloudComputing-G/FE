@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://100.28.160.69:8080";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "https://100.28.160.69:8080";
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -22,7 +23,9 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem("refreshToken");
       if (refreshToken) {
         try {
-          const { data } = await axios.post(`${BASE_URL}/api/auth/refresh`, { refreshToken });
+          const { data } = await axios.post(`${BASE_URL}/api/auth/refresh`, {
+            refreshToken,
+          });
           localStorage.setItem("accessToken", data.data.accessToken);
           localStorage.setItem("refreshToken", data.data.refreshToken);
           error.config.headers.Authorization = `Bearer ${data.data.accessToken}`;
@@ -34,5 +37,5 @@ apiClient.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );

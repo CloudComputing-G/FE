@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "http://100.28.160.69:8080",
+  baseURL: "https://100.28.160.69:8080",
   headers: {
     "Content-Type": "application/json",
   },
@@ -17,7 +17,10 @@ apiClient.interceptors.request.use((config) => {
 });
 
 let isRefreshing = false;
-let pendingQueue: { resolve: (token: string) => void; reject: (err: unknown) => void }[] = [];
+let pendingQueue: {
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}[] = [];
 
 function flushQueue(error: unknown, token: string | null) {
   pendingQueue.forEach(({ resolve, reject }) => {
