@@ -4,16 +4,19 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
   ChevronRight, Loader2, CheckCircle2,
-  ClipboardList, LayoutDashboard, ExternalLink,
+  ClipboardList, LayoutDashboard, ExternalLink, RefreshCw,
 } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/teacher/Sidebar"
+import { Button } from "@/components/ui/button"
 import { getAssignment, getLeaderboard } from "@/lib/api/assignments"
 import { getClassroom } from "@/lib/api/classrooms"
 import { getRegradeRequests, confirmRegrade } from "@/lib/api/submissions"
 import { cn } from "@/lib/utils"
 import type {
+  ApiResponse,
+  AssignmentResponse,
   RegradeRequest,
   RankingItem,
 } from "@/lib/api/types"
@@ -200,38 +203,57 @@ export default function AssignmentPage() {
     enabled: !!numericClassId,
   })
 
-  const { data: assignmentData, isLoading: assignmentLoading } = useQuery({
+  const {
+    data: assignmentData,
+    isLoading: assignmentLoading,
+    isFetching: assignmentFetching,
+    refetch: refetchAssignment,
+  } = useQuery({
     queryKey: ["assignment", assignmentId],
     queryFn: () => getAssignment(assignmentId),
     enabled: !!assignmentId,
-    refetchInterval: 15000,
+    refetchInterval: (query) => {
+      const data = query.state.data as ApiResponse<AssignmentResponse> | undefined
+      const assignment = data?.data
+      if (!assignment) return false
+      return assignment.submittedCount > assignment.gradedCount ? 30000 : false
+    },
   })
 
+  const assignment = assignmentData?.data
+  const hasOngoingGrading = !!assignment && assignment.submittedCount > assignment.gradedCount
 
   const {
     data: regradeData,
     isLoading: regradeLoading,
     isError: regradeError,
+    isFetching: regradeFetching,
+    refetch: refetchRegradeRequests,
   } = useQuery({
     queryKey: ["regrade-requests", assignmentId],
     queryFn: () => getRegradeRequests(assignmentId),
     enabled: !!assignmentId,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   })
 
   const {
     data: leaderboardData,
+    isFetching: leaderboardFetching,
+    refetch: refetchLeaderboard,
   } = useQuery({
     queryKey: ["leaderboard", assignmentId],
     queryFn: () => getLeaderboard(assignmentId),
     enabled: !!assignmentId,
-    refetchInterval: 15000,
+    refetchInterval: hasOngoingGrading ? 30000 : false,
   })
 
-  const assignment = assignmentData?.data
+  const leaderboard = leaderboardData?.data
   const regradeRequests: RegradeRequest[] = Array.isArray(regradeData) ? regradeData : []
   const pendingCount = regradeRequests.length
-  const rankings: RankingItem[] = leaderboardData?.data?.rankings ?? []
+  const rankings: RankingItem[] = useMemo(
+    () => leaderboard?.rankings ?? [],
+    [leaderboard]
+  )
 
   const totalCount = classroomData?.data?.studentCount ?? assignment?.totalCount ?? 0
   const submittedCount = rankings.length > 0 ? rankings.length : (assignment?.submittedCount ?? 0)
@@ -260,6 +282,15 @@ export default function AssignmentPage() {
   ]
 
   const isLoading = assignmentLoading
+  const isRefreshing = assignmentFetching || regradeFetching || leaderboardFetching
+
+  function handleRefresh() {
+    void Promise.all([
+      refetchAssignment(),
+      refetchRegradeRequests(),
+      refetchLeaderboard(),
+    ])
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -320,6 +351,17 @@ export default function AssignmentPage() {
                 </span>
               )}
             </button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="ml-auto mb-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              새로고침
+            </Button>
           </div>
 
           {/* ── 과제 현황 탭 ─────────────────────────────────────────── */}
@@ -401,7 +443,7 @@ export default function AssignmentPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {filteredStudents.map((student) => {
-                            const maxScore = leaderboardData?.data?.maxScore ?? 0
+                            const maxScore = leaderboard?.maxScore ?? 0
                             const isDone = student.gradingStatus === "DONE"
                             return (
                               <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
