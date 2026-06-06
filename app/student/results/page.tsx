@@ -8,7 +8,7 @@ import {
   BarChart2, Upload, Users, Bot, ChevronDown, ChevronUp, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSubmissionResults } from "@/lib/api/submissions";
+import { getSubmissionResults, getGradingStatus } from "@/lib/api/submissions";
 import { getAssignments } from "@/lib/api/assignments";
 import { getMyClassrooms } from "@/lib/api/classrooms";
 import type { SubmissionResultResponse, QuestionResult } from "@/lib/api/types";
@@ -49,6 +49,7 @@ function StudentResultsContent() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [result, setResult] = useState<SubmissionResultResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [gradingMessage, setGradingMessage] = useState<string | null>(null);
 
   // localStorage에 저장된 제출 과제 목록 로드
   useEffect(() => {
@@ -72,16 +73,37 @@ function StudentResultsContent() {
     })();
   }, []);
 
+  async function fetchResults(submissionId: number) {
+    setResult(null);
+    setGradingMessage(null);
+    setLoading(true);
+    try {
+      const res = await getSubmissionResults(submissionId);
+      if (res) {
+        setResult(res);
+      } else {
+        const status = await getGradingStatus(submissionId);
+        if (status.status === "FAILED") {
+          setGradingMessage("채점 중 오류가 발생했습니다.");
+        } else if (status.status === "DONE") {
+          setGradingMessage("채점 결과를 불러오지 못했습니다.");
+        } else {
+          setGradingMessage("채점 중입니다. 잠시 후 다시 확인해주세요.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      setGradingMessage("결과를 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleSelectAssignment(item: SubmittedAssignment) {
     setDropdownOpen(false);
     if (item.submissionId === selectedSubmissionId) return;
     setSelectedSubmissionId(item.submissionId);
-    setResult(null);
-    setLoading(true);
-    getSubmissionResults(item.submissionId)
-      .then(setResult)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetchResults(item.submissionId);
   }
 
   const selectedAssignment = submittedAssignments.find((a) => a.submissionId === selectedSubmissionId);
@@ -100,15 +122,7 @@ function StudentResultsContent() {
             채점 결과
           </h1>
           <button
-            onClick={() => {
-              if (!selectedSubmissionId || loading) return;
-              setResult(null);
-              setLoading(true);
-              getSubmissionResults(selectedSubmissionId)
-                .then(setResult)
-                .catch(console.error)
-                .finally(() => setLoading(false));
-            }}
+            onClick={() => { if (!selectedSubmissionId || loading) return; fetchResults(selectedSubmissionId); }}
             disabled={!selectedSubmissionId || loading}
             aria-label="새로고침"
             className="active:opacity-70 disabled:opacity-30"
@@ -168,7 +182,7 @@ function StudentResultsContent() {
         ) : !selectedSubmissionId ? (
           <p className="text-[14px] text-[#6B7280] text-center py-16">과제를 선택하면 채점 결과를 확인할 수 있습니다.</p>
         ) : !result ? (
-          <p className="text-[14px] text-[#6B7280] text-center py-16">아직 채점이 완료되지 않았습니다.</p>
+          <p className="text-[14px] text-[#6B7280] text-center py-16">{gradingMessage ?? "아직 채점이 완료되지 않았습니다."}</p>
         ) : (
           <>
             {/* Score card */}
