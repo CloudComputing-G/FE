@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, BookOpen,
@@ -45,12 +44,8 @@ interface SubmittedAssignment {
 }
 
 function StudentResultsContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const submissionIdParam = Number(searchParams.get("submissionId"));
-
   const [submittedAssignments, setSubmittedAssignments] = useState<SubmittedAssignment[]>([]);
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number>(submissionIdParam);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number>(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [result, setResult] = useState<SubmissionResultResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,31 +66,22 @@ function StudentResultsContent() {
           }
         }
         setSubmittedAssignments(submitted);
-        // URL에 submissionId가 없으면 첫 번째 제출 과제 선택
-        if (!submissionIdParam && submitted.length > 0) {
-          setSelectedSubmissionId(submitted[0].submissionId);
-        }
       } catch (e) {
         console.error(e);
       }
     })();
-  }, [submissionIdParam]);
-
-  // 선택된 submissionId로 결과 fetch
-  useEffect(() => {
-    if (!selectedSubmissionId) { setLoading(false); return; }
-    setLoading(true);
-    setResult(null);
-    getSubmissionResults(selectedSubmissionId)
-      .then(setResult)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [selectedSubmissionId]);
+  }, []);
 
   function handleSelectAssignment(item: SubmittedAssignment) {
     setDropdownOpen(false);
+    if (item.submissionId === selectedSubmissionId) return;
     setSelectedSubmissionId(item.submissionId);
-    router.replace(`/student/results?submissionId=${item.submissionId}`);
+    setResult(null);
+    setLoading(true);
+    getSubmissionResults(item.submissionId)
+      .then(setResult)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }
 
   const selectedAssignment = submittedAssignments.find((a) => a.submissionId === selectedSubmissionId);
@@ -175,8 +161,10 @@ function StudentResultsContent() {
               {[1,2,3].map(i => <div key={i} className="flex-1 h-20 rounded-xl bg-[#F3F4F6] animate-pulse" />)}
             </div>
           </div>
-        ) : !selectedSubmissionId ? (
+        ) : submittedAssignments.length === 0 ? (
           <p className="text-[14px] text-[#6B7280] text-center py-16">제출한 과제가 없습니다.</p>
+        ) : !selectedSubmissionId ? (
+          <p className="text-[14px] text-[#6B7280] text-center py-16">과제를 선택하면 채점 결과를 확인할 수 있습니다.</p>
         ) : !result ? (
           <p className="text-[14px] text-[#6B7280] text-center py-16">아직 채점이 완료되지 않았습니다.</p>
         ) : (
@@ -249,11 +237,8 @@ function StudentResultsContent() {
       {/* TabBar */}
       <div className="flex items-center justify-between bg-white px-[15px] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-[#F3F4F6]">
         {tabs.map(({ label, icon: Icon, href, active }) => {
-          const resolvedHref = label === "오답노트" && selectedSubmissionId
-            ? `/student/wrong-notes?submissionId=${selectedSubmissionId}`
-            : href;
           return (
-            <Link key={label} href={resolvedHref} className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70" aria-label={label}>
+            <Link key={label} href={href} className="flex flex-col items-center gap-1 w-[60px] py-1 active:opacity-70" aria-label={label}>
               <Icon className={cn("w-[22px] h-[22px]", active ? "text-[#10B981]" : "text-[#9CA3AF]")} />
               <span className={cn("text-[11px] leading-[16.5px] tracking-wide", active ? "font-semibold text-[#10B981]" : "font-medium text-[#6B7280]")}>
                 {label}

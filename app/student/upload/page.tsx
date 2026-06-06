@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { ChevronLeft, Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDown, ChevronUp, Lightbulb, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMyClassrooms } from "@/lib/api/classrooms";
 import { getAssignments, getUploadUrl, uploadToS3, confirmUpload } from "@/lib/api/assignments";
@@ -18,7 +18,6 @@ const tabs = [
 ];
 
 function StudentUploadContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get("assignmentId");
 
@@ -29,6 +28,7 @@ function StudentUploadContent() {
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,9 +105,8 @@ function StudentUploadContent() {
       await confirmUpload(selectedId, submissionId);
       const userName = localStorage.getItem("userName") ?? "";
       localStorage.setItem(`submission_${userName}_${selectedId}`, String(submissionId));
-      const questionCount = selected?.questions?.length ?? 0;
-      const title = encodeURIComponent(selected?.title ?? "");
-      router.push(`/student/upload/grading?submissionId=${submissionId}&total=${questionCount}&title=${title}`);
+      setSubmittedIds((prev) => new Set(prev).add(selectedId));
+      setUploaded(true);
     } catch (e) {
       console.error(e);
       setError("업로드 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -209,86 +208,113 @@ function StudentUploadContent() {
             )}
           </div>
 
-          {/* Upload Drop Zone */}
-          <label
-            className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[#D1D5DB] bg-white cursor-pointer active:opacity-70 overflow-hidden"
-            style={{ minHeight: 311 }}
-          >
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/heic,image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            {previewUrls.length > 0 ? (
-              <div className="w-full flex flex-col gap-1 p-2">
-                {previewUrls.map((url, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={url}
-                    alt={`풀이 미리보기 ${i + 1}`}
-                    className="w-full object-contain rounded"
-                  />
-                ))}
+          {uploaded ? (
+            /* 제출 완료 카드 */
+            <div className="flex flex-col items-center gap-6 py-8">
+              <div className="w-20 h-20 rounded-full bg-[#D1FAE5] flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-[#10B981]" />
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-[65px] px-4">
-                <div className="w-16 h-16 rounded-full bg-[#E5E7EB] flex items-center justify-center mb-6">
-                  <Camera className="w-8 h-8 text-[#6B7280]" />
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[18px] font-bold text-[#111827] leading-[27px] tracking-tight">
+                  제출이 완료되었습니다
+                </span>
+                <span className="text-[13px] text-[#6B7280] leading-[19.5px] text-center">
+                  AI 채점이 완료되면 채점 결과 탭에서 확인하세요
+                </span>
+              </div>
+              <Link
+                href="/student/results"
+                className="w-full rounded-xl py-4 flex items-center justify-center bg-[#10B981] active:opacity-80"
+              >
+                <span className="text-[16px] font-bold text-white leading-[24px] tracking-tight">
+                  채점 결과 보기
+                </span>
+              </Link>
+            </div>
+          ) : (
+            <>
+              {/* Upload Drop Zone */}
+              <label
+                className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[#D1D5DB] bg-white cursor-pointer active:opacity-70 overflow-hidden"
+                style={{ minHeight: 311 }}
+              >
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/heic,image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {previewUrls.length > 0 ? (
+                  <div className="w-full flex flex-col gap-1 p-2">
+                    {previewUrls.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`풀이 미리보기 ${i + 1}`}
+                        className="w-full object-contain rounded"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-[65px] px-4">
+                    <div className="w-16 h-16 rounded-full bg-[#E5E7EB] flex items-center justify-center mb-6">
+                      <Camera className="w-8 h-8 text-[#6B7280]" />
+                    </div>
+                    <p className="text-[16px] font-semibold text-[#111827] leading-[24px] tracking-tight mb-3">
+                      풀이 사진 추가
+                    </p>
+                    <p className="text-[13px] font-medium text-[#6B7280] leading-[19.5px] text-center px-4 mb-2">
+                      여러 장 선택 가능 (세로로 합쳐서 업로드)
+                    </p>
+                    <p className="text-[12px] font-medium text-[#D1D5DB] leading-[18px] text-center">
+                      JPG, PNG, HEIC 지원
+                    </p>
+                  </div>
+                )}
+              </label>
+
+              {/* Tip Box */}
+              <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl px-4 py-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Lightbulb className="w-[18px] h-[18px] text-[#F59E0B] flex-shrink-0 mt-[1px]" />
+                  <span className="text-[13px] font-semibold text-[#92400E] leading-[19.5px] tracking-tight">
+                    촬영 팁
+                  </span>
                 </div>
-                <p className="text-[16px] font-semibold text-[#111827] leading-[24px] tracking-tight mb-3">
-                  풀이 사진 추가
-                </p>
-                <p className="text-[13px] font-medium text-[#6B7280] leading-[19.5px] text-center px-4 mb-2">
-                  여러 장 선택 가능 (세로로 합쳐서 업로드)
-                </p>
-                <p className="text-[12px] font-medium text-[#D1D5DB] leading-[18px] text-center">
-                  JPG, PNG, HEIC 지원
-                </p>
+                <div className="flex flex-col gap-1 pl-6">
+                  <p className="text-[12px] text-[#92400E] leading-[18px]">풀이 전체가 보이도록 찍어주세요</p>
+                  <p className="text-[12px] text-[#92400E] leading-[18px]">밝은 곳에서 그림자 없이 촬영해주세요</p>
+                  <p className="text-[12px] text-[#92400E] leading-[18px]">글씨가 선명하게 나오도록 초점을 맞춰주세요</p>
+                </div>
               </div>
-            )}
-          </label>
 
-          {/* Tip Box */}
-          <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl px-4 py-4">
-            <div className="flex items-start gap-2 mb-3">
-              <Lightbulb className="w-[18px] h-[18px] text-[#F59E0B] flex-shrink-0 mt-[1px]" />
-              <span className="text-[13px] font-semibold text-[#92400E] leading-[19.5px] tracking-tight">
-                촬영 팁
-              </span>
-            </div>
-            <div className="flex flex-col gap-1 pl-6">
-              <p className="text-[12px] text-[#92400E] leading-[18px]">풀이 전체가 보이도록 찍어주세요</p>
-              <p className="text-[12px] text-[#92400E] leading-[18px]">밝은 곳에서 그림자 없이 촬영해주세요</p>
-              <p className="text-[12px] text-[#92400E] leading-[18px]">글씨가 선명하게 나오도록 초점을 맞춰주세요</p>
-            </div>
-          </div>
+              {/* Error */}
+              {error && (
+                <p className="text-[13px] text-[#EF4444] text-center">{error}</p>
+              )}
+              {selectedId && submittedIds.has(selectedId) && !uploaded && (
+                <p className="text-[13px] text-[#F59E0B] text-center">이미 제출한 과제입니다.</p>
+              )}
 
-          {/* Error */}
-          {error && (
-            <p className="text-[13px] text-[#EF4444] text-center">{error}</p>
+              {/* Upload Button */}
+              <button
+                onClick={handleUpload}
+                disabled={files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))}
+                className={cn(
+                  "w-full rounded-xl py-4 flex items-center justify-center active:opacity-80",
+                  files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))
+                    ? "bg-[#D1D5DB]"
+                    : "bg-[#10B981]"
+                )}
+              >
+                <span className="text-[16px] font-bold text-white leading-[24px] tracking-tight">
+                  {uploading ? "업로드 중..." : "업로드"}
+                </span>
+              </button>
+            </>
           )}
-          {selectedId && submittedIds.has(selectedId) && (
-            <p className="text-[13px] text-[#F59E0B] text-center">이미 제출한 과제입니다.</p>
-          )}
-
-          {/* Upload Button */}
-          <button
-            onClick={handleUpload}
-            disabled={files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))}
-            className={cn(
-              "w-full rounded-xl py-4 flex items-center justify-center active:opacity-80",
-              files.length === 0 || !selectedId || uploading || (!!selectedId && submittedIds.has(selectedId))
-                ? "bg-[#D1D5DB]"
-                : "bg-[#10B981]"
-            )}
-          >
-            <span className="text-[16px] font-bold text-white leading-[24px] tracking-tight">
-              {uploading ? "업로드 중..." : "업로드"}
-            </span>
-          </button>
         </div>
       </div>
 
