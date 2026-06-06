@@ -79,7 +79,7 @@ function StudentResultsContent() {
     setLoading(true);
     try {
       const res = await getSubmissionResults(submissionId);
-      if (res) {
+      if (res && res.questions.length > 0) {
         setResult(res);
       } else {
         const status = await getGradingStatus(submissionId);
