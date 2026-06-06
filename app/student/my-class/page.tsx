@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, BarChart2, Upload, BookOpen, Users, Bot } from "lucide-react";
+import { Calendar, BarChart2, Upload, BookOpen, Users, Bot, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMyClassrooms } from "@/lib/api/classrooms";
 import { getAssignments } from "@/lib/api/assignments";
@@ -34,11 +35,22 @@ function deadlineLabel(dueDate: string | null) {
 }
 
 export default function StudentMyClassPage() {
+  const router = useRouter();
   const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [studentName, setStudentName] = useState("학생");
   const [currentUserName, setCurrentUserName] = useState("");
+
+  function handleLogout() {
+    const userName = localStorage.getItem("userName") ?? "";
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(`submission_${userName}_`));
+    keys.forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userName");
+    router.push("/login");
+  }
 
   useEffect(() => {
     const name = localStorage.getItem("userName") ?? "학생";
@@ -69,9 +81,14 @@ export default function StudentMyClassPage() {
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4 flex flex-col gap-3">
         {/* Greeting Card */}
         <div className="rounded-xl px-4 pt-4 pb-4 flex flex-col gap-1 bg-gradient-to-br from-[#10B981] to-[#059669] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.06)]">
-          <p className="text-[18px] font-semibold text-white leading-[27px] tracking-tight" suppressHydrationWarning>
-            안녕하세요, {studentName} 님 👋
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[18px] font-semibold text-white leading-[27px] tracking-tight" suppressHydrationWarning>
+              안녕하세요, {studentName} 님 👋
+            </p>
+            <button onClick={handleLogout} aria-label="로그아웃" className="active:opacity-70">
+              <LogOut className="w-5 h-5 text-white/80" />
+            </button>
+          </div>
           <p className="text-[14px] font-normal text-white/90 leading-[21px]">
             오늘도 열심히 공부해봐요!
           </p>
