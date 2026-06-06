@@ -100,20 +100,6 @@ function ChatContent({ params }: { params: Promise<{ questionId: string }> }) {
 
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-[#F9FAFB] mx-auto">
-      {/* StatusBar */}
-      <div className="flex items-center justify-between px-6 pt-3 pb-2 bg-white">
-        <span className="text-[15px] font-semibold text-[#111827] tracking-tight">9:41</span>
-        <div className="flex items-center gap-1">
-          <div className="flex gap-[3px] items-end h-4">
-            <div className="w-[3px] h-[4px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[6px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[9px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[11px] bg-[#111827] rounded-sm" />
-          </div>
-          <div className="w-4 h-3 border border-[#111827] rounded-sm ml-1" />
-        </div>
-      </div>
-
       {/* Header */}
       <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-[#F3F4F6]">
         <Link href={backHref} aria-label="뒤로가기" className="active:opacity-70">

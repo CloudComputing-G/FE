@@ -65,20 +65,6 @@ export default function StudentMyClassPage() {
 
   return (
     <div className="flex flex-col w-full max-w-md h-dvh bg-white mx-auto">
-      {/* StatusBar */}
-      <div className="flex items-center justify-between px-6 pt-3 pb-2">
-        <span className="text-[15px] font-semibold text-[#111827] tracking-tight">9:41</span>
-        <div className="flex items-center gap-1">
-          <div className="flex gap-[3px] items-end h-4">
-            <div className="w-[3px] h-[4px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[6px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[9px] bg-[#111827] rounded-sm" />
-            <div className="w-[3px] h-[11px] bg-[#111827] rounded-sm" />
-          </div>
-          <div className="w-4 h-3 border border-[#111827] rounded-sm ml-1" />
-        </div>
-      </div>
-
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4 flex flex-col gap-3">
         {/* Greeting Card */}
