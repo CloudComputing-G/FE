@@ -7,6 +7,7 @@ import { ChevronLeft, Camera, BarChart2, Upload, BookOpen, Users, Bot, ChevronDo
 import { cn } from "@/lib/utils";
 import { getMyClassrooms } from "@/lib/api/classrooms";
 import { getAssignments, getUploadUrl, uploadToS3, confirmUpload } from "@/lib/api/assignments";
+import { getMySubmissions } from "@/lib/api/submissions";
 import type { AssignmentResponse } from "@/lib/api/types";
 
 const tabs = [
@@ -39,12 +40,8 @@ function StudentUploadContent() {
         const list = (await getAssignments(classrooms[0].classId)).data ?? [];
         const submittable = list.filter((a) => a.status === "PUBLISHED");
         setAssignments(submittable);
-        const userName = localStorage.getItem("userName") ?? "";
-        const submitted = new Set<number>(
-          submittable
-            .filter((a) => localStorage.getItem(`submission_${userName}_${a.assignmentId}`))
-            .map((a) => a.assignmentId)
-        );
+        const mySubmissions = await getMySubmissions();
+        const submitted = new Set<number>(mySubmissions.map((s) => s.assignmentId));
         setSubmittedIds(submitted);
         const initial = preselectedId
           ? Number(preselectedId)
@@ -103,8 +100,6 @@ function StudentUploadContent() {
       const { submissionId, presignedUrl } = await getUploadUrl(selectedId, "jpg");
       await uploadToS3(presignedUrl, uploadFile);
       await confirmUpload(selectedId, submissionId);
-      const userName = localStorage.getItem("userName") ?? "";
-      localStorage.setItem(`submission_${userName}_${selectedId}`, String(submissionId));
       setSubmittedIds((prev) => new Set(prev).add(selectedId));
       setUploaded(true);
     } catch (e) {
