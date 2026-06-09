@@ -122,6 +122,15 @@ export interface PresignedUrlResponse {
 }
 
 // --- Submission ---
+export interface MySubmissionResponse {
+  submissionId: number
+  assignmentId: number
+  assignmentTitle: string
+  gradingStatus: "PENDING" | "DONE" | "FAILED"
+  totalScore: number | null
+  submittedAt: string
+}
+
 export interface SubmissionResponse {
   submissionId: number
   gradingStatus: "PENDING" | "DONE" | "FAILED"

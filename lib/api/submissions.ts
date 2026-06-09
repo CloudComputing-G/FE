@@ -2,12 +2,18 @@ import { apiClient } from "./client";
 import type {
   ApiResponse,
   GradingStatusResponse,
+  MySubmissionResponse,
   SubmissionResultResponse,
   RegradeRequest,
   RegradeRequestListResponse,
   RegradeConfirmRequest,
   RegradeConfirmResponse,
 } from "./types";
+
+export async function getMySubmissions(): Promise<MySubmissionResponse[]> {
+  const { data } = await apiClient.get<ApiResponse<MySubmissionResponse[]>>("/api/submissions/me");
+  return data.data;
+}
 
 export async function getGradingStatus(submissionId: number): Promise<GradingStatusResponse> {
   const { data } = await apiClient.get<ApiResponse<GradingStatusResponse>>(

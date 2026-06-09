@@ -6,6 +6,7 @@
 .pnp.*
 .yarn/*
 .codex/*
+.claude/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
