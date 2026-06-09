@@ -8,7 +8,9 @@ import {
   BarChart2, Upload, Users, Bot, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSubmissionResults, getMySubmissions } from "@/lib/api/submissions";
+import { getSubmissionResults } from "@/lib/api/submissions";
+import { getAssignments } from "@/lib/api/assignments";
+import { getMyClassrooms } from "@/lib/api/classrooms";
 import type { QuestionResult } from "@/lib/api/types";
 
 type ProblemStatus = "correct" | "partial" | "wrong";
@@ -53,15 +55,25 @@ function WrongNotesContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getMySubmissions()
-      .then((list) => {
-        const submitted = list.map((s) => ({ assignmentId: s.assignmentId, title: s.assignmentTitle, submissionId: s.submissionId }));
+    (async () => {
+      try {
+        const classrooms = await getMyClassrooms();
+        if (classrooms.length === 0) return;
+        const assignments = (await getAssignments(classrooms[0].classId)).data ?? [];
+        const userName = localStorage.getItem("userName") ?? "";
+        const submitted: SubmittedAssignment[] = [];
+        for (const a of assignments) {
+          const sid = localStorage.getItem(`submission_${userName}_${a.assignmentId}`);
+          if (sid) submitted.push({ assignmentId: a.assignmentId, title: a.title, submissionId: Number(sid) });
+        }
         setSubmittedAssignments(submitted);
         if (!submissionIdParam && submitted.length > 0) {
           setSelectedSubmissionId(submitted[0].submissionId);
         }
-      })
-      .catch(console.error);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
   }, [submissionIdParam]);
 
   useEffect(() => {
